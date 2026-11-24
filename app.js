@@ -126,15 +126,27 @@
     $("crew-count").textContent=(data.members||[]).length;
     $("crew-list").innerHTML=(data.members||[]).map(m=>`<div class="crew-person"><span class="avatar">${esc(m.display_name.slice(0,2).toUpperCase())}</span><div><strong>${esc(m.display_name)}${m.id===state.member.id?" (you)":""}</strong><small>${(data.availability||[]).filter(a=>a.member_id===m.id).length} selected slots</small></div></div>`).join("")||'<p class="muted">No members yet.</p>';
     state.best=calculateBest(data);
-    if(state.best&&state.best.count>0){
+    const kicker=$("best-kicker");
+    if(state.best&&state.best.count>=4){
       const p=decodePeriod(state.best.period),club=(data.clubs||[]).find(c=>c.id===state.best.club_id);
+      if(kicker) kicker.textContent="THE GROUP PICK";
       $("best-title").textContent=`${days[state.best.weekday]} · ${p.label}`;
-      $("best-description").textContent=`${state.best.count} ${state.best.count===1?"player is":"players are"} available${club?` at ${club.name}`:""}. ${p.time}.`;
+      $("best-description").textContent=`${state.best.count} players match this exact day, time, duration and location${club?` at ${club.name}`:" (Any location)"}. ${p.time}. Your group is ready to play!`;
       $("best-whatsapp").disabled=false;
+      $("best-whatsapp").classList.remove("hidden");
     }else{
-      $("best-title").textContent="Your court is waiting";
-      $("best-description").textContent="No availability yet. Be the first to add your slots and invite your crew.";
+      const matched=state.best?state.best.count:0;
+      const needed=4-matched;
+      if(kicker) kicker.textContent="BUILDING YOUR GROUP";
+      $("best-title").textContent=matched===0?"4 players needed":`${needed} more ${needed===1?"player":"players"} ${needed===1?"to go":"to go"}`;
+      if(matched>0){
+        const p=decodePeriod(state.best.period),club=(data.clubs||[]).find(c=>c.id===state.best.club_id);
+        $("best-description").textContent=`${matched} ${matched===1?"player":"players"} currently match ${days[state.best.weekday]} at ${p.label}${club?` at ${club.name}`:" (Any location)"}. Need ${needed} more ${needed===1?"player":"players"} to unlock the Group Pick.`;
+      }else{
+        $("best-description").textContent="No matching preferences yet. Add your day, time, duration and location. The Group Pick appears when 4 players match.";
+      }
       $("best-whatsapp").disabled=true;
+      $("best-whatsapp").classList.add("hidden");
     }
     $("club-list").innerHTML=(data.clubs||[]).map(c=>`<span class="club-pill">${esc(c.name)}${c.area?`<small>· ${esc(c.area)}</small>`:""}</span>`).join("")||"<span class=\"muted\">No clubs added yet. Add your group’s favourite locations.</span>";
     $("week-label").textContent=`Week of ${new Date().toLocaleDateString("en-GB",{day:"numeric",month:"short"})}`;
@@ -150,7 +162,7 @@
     state.channel=state.client.channel(`padel-${state.group.id}`).on("postgres_changes",{event:"*",schema:"public",table:"padel_availability",filter:`group_id=eq.${state.group.id}`},()=>refreshDashboard().catch(console.error)).on("postgres_changes",{event:"*",schema:"public",table:"padel_members",filter:`group_id=eq.${state.group.id}`},()=>refreshDashboard().catch(console.error)).on("postgres_changes",{event:"*",schema:"public",table:"padel_clubs",filter:`group_id=eq.${state.group.id}`},()=>refreshDashboard().catch(console.error)).subscribe();
   }
   function bestMessage(){
-    if(!state.best)return "Let's organise a padel game in our group!";
+    if(!state.best||state.best.count<4)return "We need at least 4 players with the same day, time, duration and location to confirm a Group Pick.";
     const p=decodePeriod(state.best.period),club=state.clubs.find(c=>c.id===state.best.club_id);
     return `🎾 Padel plan — ${state.group.name}\n\nBest group slot: ${days[state.best.weekday]}, ${p.label} (${p.time})\nAvailable players: ${state.best.count}${club?`\nPreferred club: ${club.name}${club.area?` (${club.area})`:""}`:""}\n\nCan you make it?`;
   }
