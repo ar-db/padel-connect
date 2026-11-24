@@ -1,5 +1,5 @@
 // Add your Supabase project values here. Never put a service_role key in this file.
 window.PADEL_CONFIG = {
-  SUPABASE_URL: "https://YOUR-PROJECT-REF.supabase.co",
-  SUPABASE_ANON_KEY: "YOUR_SUPABASE_ANON_PUBLIC_KEY"
+  SUPABASE_URL: "https://pkyiwwolgtdqvekgndyt.supabase.co",
+  SUPABASE_ANON_KEY: "sb_publishable_dT6lsQRphpUtxGelUpF1Ow_0Mu19oAP"
 };
