@@ -36,7 +36,7 @@ create table if not exists public.padel_availability (
   group_id uuid not null references public.padel_groups(id) on delete cascade,
   member_id uuid not null references public.padel_members(id) on delete cascade,
   weekday smallint not null check (weekday between 0 and 6),
-  period text not null check (period in ('morning','midday','afternoon','evening','night')),
+  period text not null check (period ~ '^(60|90)_(17|18|19|20|21|22):(00|15|30|45)$'),
   club_id uuid references public.padel_clubs(id) on delete cascade,
   created_at timestamptz not null default now(),
   unique(member_id,weekday,period,club_id)
@@ -136,7 +136,7 @@ begin
   delete from public.padel_availability where group_id=p_group_id and member_id=v_member.id;
   for v_slot in select * from jsonb_array_elements(p_slots) loop
     v_day := (v_slot->>'weekday')::int; v_period := v_slot->>'period'; v_club := nullif(v_slot->>'club_id','')::uuid;
-    if v_day not between 0 and 6 or v_period not in ('morning','midday','afternoon','evening','night') then raise exception 'Invalid availability slot'; end if;
+    if v_day not between 0 and 6 or v_period !~ '^(60|90)_(17|18|19|20|21|22):(00|15|30|45)$' then raise exception 'Invalid availability slot'; end if;
     if v_club is not null and not exists(select 1 from public.padel_clubs where id=v_club and group_id=p_group_id) then raise exception 'Invalid club for this group'; end if;
     insert into public.padel_availability(group_id,member_id,weekday,period,club_id) values(p_group_id,v_member.id,v_day,v_period,v_club)
     on conflict do nothing;

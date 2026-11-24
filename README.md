@@ -105,3 +105,11 @@ python3 -m http.server 8000
 ```
 
 Then open `http://localhost:8000`. Supabase must still be configured in `config.js`.
+
+
+### Flexible availability slots
+Players can add multiple start-time/duration combinations for each weekday. Start times are available every 15 minutes from 17:00 to 22:00, with 60- or 90-minute durations. For existing installations, run `supabase/migrate-flexible-time-slots.sql` once in the Supabase SQL Editor. This migration clears previous availability selections but keeps groups, members, and clubs.
+
+
+### Availability preferences
+Each preference is added as one row containing weekday, start time, duration (60 or 90 minutes), and location (a specific group club or Any location). Members can add multiple rows and remove individual preferences. This is a frontend-only usability update; the existing flexible-time database schema and RPC migration remain compatible, so no new database migration is required if you already applied the flexible-time migration.
