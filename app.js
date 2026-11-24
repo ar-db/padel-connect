@@ -92,7 +92,7 @@
       $("best-description").textContent="No availability yet. Be the first to add your slots and invite your crew.";
       $("best-whatsapp").disabled=true;
     }
-    $("club-list").innerHTML=(data.clubs||[]).map(c=>`<span class="club-pill">${esc(c.name)}${c.area?`<small>· ${esc(c.area)}</small>`:""}</span>`).join("")||'<span class="muted">No clubs added yet. Add your group's favourite locations.</span>';
+    $("club-list").innerHTML=(data.clubs||[]).map(c=>`<span class="club-pill">${esc(c.name)}${c.area?`<small>· ${esc(c.area)}</small>`:""}</span>`).join("")||"<span class=\"muted\">No clubs added yet. Add your group's favourite locations.</span>";
     $("week-label").textContent=`Week of ${new Date().toLocaleDateString("en-GB",{day:"numeric",month:"short"})}`;
   }
   async function saveAvailability(){
