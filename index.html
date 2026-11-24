@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#102b25">
+  <meta name="description" content="Private weekly padel planning for your friends in Málaga.">
+  <title>Padel Connect — Play together</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+  <div class="ambient ambient-one"></div><div class="ambient ambient-two"></div>
+  <header class="topbar">
+    <a class="brand" href="#"><span class="brand-mark">P</span><span>PADEL<span class="brand-light">CONNECT</span></span></a>
+    <div class="topbar-right"><span class="live-dot"></span><span id="connection-label">Connecting</span><button class="text-button hidden" id="leave-group">Leave group</button></div>
+  </header>
+
+  <main class="shell">
+    <section class="hero">
+      <div class="hero-copy">
+        <div class="eyebrow"><span>YOUR CREW. YOUR COURT.</span><span class="eyebrow-line"></span><span>MÁLAGA</span></div>
+        <h1>Good games<br>start <em>together.</em></h1>
+        <p>Find the time that works for your crew. Pick your slots, see the overlap, and get on court.</p>
+        <div class="hero-tags"><span>✳ Weekly planning</span><span>✳ Live availability</span><span>✳ One-tap WhatsApp</span></div>
+      </div>
+      <div class="hero-art" aria-label="Padel court illustration">
+        <div class="court court-back"></div><div class="court court-front"></div>
+        <div class="court-net"></div><div class="court-line line-mid"></div><div class="court-line line-left"></div><div class="court-line line-right"></div>
+        <div class="ball ball-one"></div><div class="ball ball-two"></div>
+        <div class="art-label"><span class="live-dot"></span> LET'S PLAY, MÁLAGA</div>
+      </div>
+    </section>
+
+    <section id="setup-panel" class="setup-grid">
+      <article class="panel welcome-panel">
+        <div class="panel-kicker">GET YOUR CREW TOGETHER</div>
+        <h2>Start with your<br><span>private group.</span></h2>
+        <p>Create a group for your friends or join one with an invite code. No full account registration required.</p>
+        <div class="setup-tabs"><button class="tab active" data-tab="join">Join a group</button><button class="tab" data-tab="create">Create a group</button></div>
+        <form id="join-form" class="stack-form">
+          <label>INVITE CODE<input id="join-code" placeholder="e.g. MALAGA-7K4P" autocomplete="off" required maxlength="24"></label>
+          <label>YOUR NAME<input id="join-name" placeholder="How should friends see you?" required maxlength="40"></label>
+          <button class="primary-button" type="submit">Join the crew <span>→</span></button>
+        </form>
+        <form id="create-form" class="stack-form hidden">
+          <label>GROUP NAME<input id="new-group-name" placeholder="e.g. Friday Padel Crew" required maxlength="50"></label>
+          <label>YOUR NAME<input id="create-name" placeholder="Your name" required maxlength="40"></label>
+          <button class="primary-button" type="submit">Create private group <span>→</span></button>
+        </form>
+        <p class="fine-print">Private by invite code. Share the code only with people you want in your group.</p>
+      </article>
+      <aside class="panel how-panel">
+        <div class="how-icon">↗</div><div class="panel-kicker">HOW IT WORKS</div>
+        <div class="how-step"><b>01</b><div><strong>Join your crew</strong><span>Use a private invite code.</span></div></div>
+        <div class="how-step"><b>02</b><div><strong>Drop your availability</strong><span>Choose days, times and clubs.</span></div></div>
+        <div class="how-step"><b>03</b><div><strong>Find the overlap</strong><span>See the best time for the group.</span></div></div>
+        <div class="how-step"><b>04</b><div><strong>Get on court</strong><span>Share the plan in WhatsApp.</span></div></div>
+      </aside>
+    </section>
+
+    <section id="app-panel" class="hidden">
+      <div class="group-heading">
+        <div><div class="panel-kicker">YOUR PRIVATE PADEL CREW</div><h2 id="group-title">Your group</h2><div class="group-meta"><span class="live-dot"></span><span id="group-code-label"></span><span id="member-count"></span></div></div>
+        <div class="group-actions"><button class="secondary-button" id="copy-invite">↗ Copy invite</button><button class="secondary-button" id="share-whatsapp">◎ WhatsApp</button></div>
+      </div>
+
+      <div class="dashboard-grid">
+        <article class="panel availability-panel">
+          <div class="section-heading"><div><div class="panel-kicker">YOUR WEEK</div><h3>When can you play?</h3></div><span class="week-label" id="week-label"></span></div>
+          <p class="muted">Select every time slot and Málaga club that could work for you. Your choices are saved to this group.</p>
+          <div class="availability-legend"><span><i class="legend-dot selected"></i> Your selection</span><span><i class="legend-dot"></i> Not selected</span></div>
+          <div id="availability-editor"></div>
+          <div class="editor-footer"><span id="save-status" class="muted">Changes save when you press save.</span><button class="primary-button compact" id="save-availability">Save my availability <span>→</span></button></div>
+        </article>
+
+        <aside class="side-stack">
+          <article class="panel best-panel">
+            <div class="panel-kicker">THE GROUP PICK</div><div class="best-icon">✳</div><h3 id="best-title">Finding your best slot…</h3><p id="best-description" class="muted">Once friends add their availability, the strongest overlap appears here.</p><button class="whatsapp-button" id="best-whatsapp">Share best slot on WhatsApp ↗</button>
+          </article>
+          <article class="panel crew-panel">
+            <div class="section-heading"><div><div class="panel-kicker">THE LINE-UP</div><h3>Your crew</h3></div><span class="count-pill" id="crew-count">0</span></div>
+            <div id="crew-list" class="crew-list"><p class="muted">Your group members will appear here.</p></div>
+          </article>
+        </aside>
+      </div>
+      <article class="panel locations-panel">
+        <div class="section-heading"><div><div class="panel-kicker">WHERE TO PLAY</div><h3>Málaga padel spots</h3></div><span class="muted small">Group locations</span></div>
+        <p class="muted">Add the clubs your group likes. Everyone can then select their preferred locations in their availability.</p>
+        <form id="club-form" class="club-form"><input id="club-name" placeholder="Club name" maxlength="80" required><input id="club-area" placeholder="Area (e.g. Teatinos)" maxlength="80"><button class="secondary-button" type="submit">+ Add club</button></form>
+        <div id="club-list" class="club-list"></div>
+      </article>
+      <div class="footer-note">PADEL CONNECT <span>·</span> Made for the next match.</div>
+    </section>
+    <div id="toast" class="toast" role="status"></div>
+  </main>
+  <footer class="site-footer"><span>PADEL CONNECT © <span id="year"></span></span><span>Find the overlap. Play more.</span></footer>
+  <script src="config.js"></script><script src="app.js"></script>
+</body>
+</html>
