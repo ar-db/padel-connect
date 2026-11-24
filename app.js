@@ -113,8 +113,8 @@
   function shareWhatsApp(text){window.open(`https://wa.me/?text=${encodeURIComponent(text)}`,"_blank","noopener,noreferrer");}
   $("year").textContent=new Date().getFullYear();
   document.querySelectorAll(".tab").forEach(t=>t.addEventListener("click",()=>{document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("active",x===t));$("join-form").classList.toggle("hidden",t.dataset.tab!=="join");$("create-form").classList.toggle("hidden",t.dataset.tab!=="create");}));
-  $("join-form").addEventListener("submit",async e=>{e.preventDefault();try{await joinGroup($("join-code").value.trim(),$("join-name").value.trim());}catch(err){toast(err.message||"Could not join group",true);}});
-  $("create-form").addEventListener("submit",async e=>{e.preventDefault();try{await createGroup($("new-group-name").value.trim(),$("create-name").value.trim());}catch(err){toast(err.message||"Could not create group",true);}});
+  $("join-form").addEventListener("submit",async e=>{e.preventDefault();if(!state.client){toast("Supabase is not configured yet. Add your Project URL and public anon key to config.js.",true);return;}try{await joinGroup($("join-code").value.trim(),$("join-name").value.trim());}catch(err){toast(err.message||"Could not join group",true);}});
+  $("create-form").addEventListener("submit",async e=>{e.preventDefault();if(!state.client){toast("Supabase is not configured yet. Add your Project URL and public anon key to config.js.",true);return;}try{await createGroup($("new-group-name").value.trim(),$("create-name").value.trim());}catch(err){toast(err.message||"Could not create group",true);}});
   $("save-availability").addEventListener("click",saveAvailability);
   $("copy-invite").addEventListener("click",async()=>{try{await navigator.clipboard.writeText(`${inviteUrl()}\nInvite code: ${state.group.invite_code}`);toast("Invite link and code copied.");}catch{toast(`Invite code: ${state.group.invite_code}`);}});
   $("share-whatsapp").addEventListener("click",()=>shareWhatsApp(`Join our private Padel Connect group: ${inviteUrl()}\nInvite code: ${state.group.invite_code}`));
@@ -123,6 +123,7 @@
   $("leave-group").addEventListener("click",()=>{if(!confirm("Leave this group on this device? Your submitted availability remains visible to the group."))return;localStorage.removeItem("padel_group_id");localStorage.removeItem("padel_group_name");localStorage.removeItem("padel_group_code");state.group=null;state.member=null;if(state.channel)state.client.removeChannel(state.channel);showSetup();});
   async function init(){
     if(!configured){setStatus("Setup required");toast("Add your Supabase URL and anon key in config.js to connect the app.",true);return;}
+    if(!window.supabase){setStatus("Connection library unavailable");toast("Supabase client could not load. Check your internet connection or CDN access.",true);return;}
     state.client=window.supabase.createClient(cfg.SUPABASE_URL,cfg.SUPABASE_ANON_KEY,{auth:{persistSession:true,autoRefreshToken:true}});
     try{
       await ensureSession();setStatus("Connected");
