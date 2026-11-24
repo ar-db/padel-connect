@@ -20,3 +20,12 @@
 .preference-day{font-weight:800}.preference-location{color:#607268}.remove-preference{padding:6px 9px;font-size:9px}
 @media(max-width:760px){.preference-adder{grid-template-columns:repeat(2,minmax(0,1fr))}.preference-adder .location-select{grid-column:span 2}.preference-adder .add-slot-button{grid-column:span 2}}
 @media(max-width:520px){.preference-row{grid-template-columns:1fr 1fr;gap:6px}.preference-location{grid-column:1}.preference-row .remove-preference{grid-column:2;grid-row:1 / span 2;justify-self:end}}
+
+/* Upcoming unlocked group matches */
+.group-picks-list{display:grid;gap:9px;margin-top:15px}
+.group-pick-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);border-radius:10px}
+.group-pick-main{display:grid;gap:4px;min-width:0}
+.group-pick-main strong{font-size:12px;color:#fff}
+.group-pick-main span{font-size:11px;color:#d9e8de}
+.group-pick-main small{font-size:10px;color:#b6d7a3}
+.pick-share-button{flex-shrink:0;border:0;border-radius:7px;background:var(--lime);color:#19382d;padding:8px 10px;font:800 9px "DM Sans";cursor:pointer}

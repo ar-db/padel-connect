@@ -113,3 +113,7 @@ Players can add multiple start-time/duration combinations for each weekday. Star
 
 ### Availability preferences
 Each preference is added as one row containing weekday, start time, duration (60 or 90 minutes), and location (a specific group club or Any location). Members can add multiple rows and remove individual preferences. This is a frontend-only usability update; the existing flexible-time database schema and RPC migration remain compatible, so no new database migration is required if you already applied the flexible-time migration.
+
+
+### Upcoming Group Unlock sessions
+The dashboard lists all upcoming weekly availability overlaps with at least four distinct members matching the exact weekday, start time, duration, and location. Each weekday preference is mapped to its next calendar occurrence; if today's matching start time has already passed, the next occurrence is shown the following week. Matches are ordered by upcoming date and start time. Each match has its own WhatsApp share action. This is based on recurring weekly preferences and does not check live court inventory or create a court booking.

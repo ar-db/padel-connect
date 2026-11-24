@@ -20,7 +20,7 @@
     return {duration,start,label:`${duration} min · ${fmt(h*60+m)}`,time:`${fmt(h*60+m)}–${fmt(end)}`};
   };
   const timeOptions = startTimes.map(t=>`<option value="${t}">${(()=>{const [h,m]=t.split(":").map(Number);return `${h%12||12}:${String(m).padStart(2,"0")} ${h>=12?"PM":"AM"}`})()}</option>`).join("");
-  const state = {client:null,user:null,group:null,member:null,clubs:[],dashboard:null,selected:new Set(),channel:null,best:null};
+  const state = {client:null,user:null,group:null,member:null,clubs:[],dashboard:null,selected:new Set(),channel:null,best:null,matches:[]};
   let sessionPromise = null;
   const toast = (msg, bad=false) => { const el=$("toast"); el.textContent=msg; el.classList.add("show"); el.style.background=bad?"#8b3d35":"#173b30"; setTimeout(()=>el.classList.remove("show"),3200); };
   const esc = (s) => String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -105,11 +105,34 @@
       state.selected.delete(btn.dataset.key); renderEditor();
     }));
   }
-  function calculateBest(data){
-    const counts=new Map(), names=new Map();
+  function calculateMatches(data){
+    const counts=new Map();
     for(const a of data.availability||[]){
       const k=`${a.weekday}|${a.period}|${a.club_id||"any"}`;
-      if(!counts.has(k)){counts.set(k,new Set());names.set(k,[]);}
+      if(!counts.has(k)) counts.set(k,new Set());
+      counts.get(k).add(a.member_id);
+    }
+    const now=new Date(), today=new Date(now.getFullYear(),now.getMonth(),now.getDate());
+    const todayMondayIndex=(today.getDay()+6)%7;
+    const matches=[];
+    for(const [k,set] of counts){
+      if(set.size<4) continue;
+      const [d,p,c]=k.split("|");
+      const weekday=Number(d), decoded=decodePeriod(p);
+      let daysAhead=(weekday-todayMondayIndex+7)%7;
+      const [hour,minute]=decoded.start.split(":").map(Number);
+      if(daysAhead===0 && hour*60+minute<=now.getHours()*60+now.getMinutes()) daysAhead=7;
+      const date=new Date(today); date.setDate(today.getDate()+daysAhead);
+      const clubId=c==="any"?null:c;
+      matches.push({weekday,period:p,club_id:clubId,count:set.size,date,dateLabel:date.toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"short"})});
+    }
+    return matches.sort((a,b)=>a.date-b.date || a.period.localeCompare(b.period));
+  }
+  function calculateBest(data){
+    const counts=new Map();
+    for(const a of data.availability||[]){
+      const k=`${a.weekday}|${a.period}|${a.club_id||"any"}`;
+      if(!counts.has(k)) counts.set(k,new Set());
       counts.get(k).add(a.member_id);
     }
     let winner=null;
@@ -126,26 +149,30 @@
     $("crew-count").textContent=(data.members||[]).length;
     $("crew-list").innerHTML=(data.members||[]).map(m=>`<div class="crew-person"><span class="avatar">${esc(m.display_name.slice(0,2).toUpperCase())}</span><div><strong>${esc(m.display_name)}${m.id===state.member.id?" (you)":""}</strong><small>${(data.availability||[]).filter(a=>a.member_id===m.id).length} selected slots</small></div></div>`).join("")||'<p class="muted">No members yet.</p>';
     state.best=calculateBest(data);
-    const kicker=$("best-kicker");
-    if(state.best&&state.best.count>=4){
-      const p=decodePeriod(state.best.period),club=(data.clubs||[]).find(c=>c.id===state.best.club_id);
-      if(kicker) kicker.textContent="THE GROUP PICK";
-      $("best-title").textContent=`${days[state.best.weekday]} · ${p.label}`;
-      $("best-description").textContent=`${state.best.count} players match this exact day, time, duration and location${club?` at ${club.name}`:" (Any location)"}. ${p.time}. Your group is ready to play!`;
-      $("best-whatsapp").disabled=false;
-      $("best-whatsapp").classList.remove("hidden");
+    state.matches=calculateMatches(data);
+    const kicker=$("best-kicker"), picks=$("group-picks-list");
+    if(state.matches.length){
+      if(kicker) kicker.textContent="THE GROUP UNLOCK";
+      $("best-title").textContent="Upcoming group matches";
+      $("best-description").textContent=`${state.matches.length} upcoming ${state.matches.length===1?"session has":"sessions have"} at least 4 players with the same day, time, duration and location.`;
+      picks.innerHTML=state.matches.map((match,i)=>{
+        const p=decodePeriod(match.period),club=(data.clubs||[]).find(c=>c.id===match.club_id);
+        return `<div class="group-pick-row"><div class="group-pick-main"><strong>${esc(match.dateLabel)}</strong><span>${esc(p.label)} · ${esc(p.time)}</span><small>${club?esc(club.name):"Any location"} · ${match.count} players</small></div><button type="button" class="pick-share-button" data-match="${i}" aria-label="Share ${esc(match.dateLabel)} match on WhatsApp">Share ↗</button></div>`;
+      }).join("");
+      $("best-whatsapp").classList.add("hidden");
+      picks.querySelectorAll(".pick-share-button").forEach(btn=>btn.addEventListener("click",()=>shareWhatsApp(matchMessage(state.matches[Number(btn.dataset.match)]))));
     }else{
+      picks.innerHTML="";
       const matched=state.best?state.best.count:0;
       const needed=4-matched;
       if(kicker) kicker.textContent="BUILDING YOUR GROUP";
-      $("best-title").textContent=matched===0?"4 players needed":`${needed} more ${needed===1?"player":"players"} ${needed===1?"to go":"to go"}`;
+      $("best-title").textContent=matched===0?"4 players needed":`${needed} more ${needed===1?"player":"players"} to go`;
       if(matched>0){
         const p=decodePeriod(state.best.period),club=(data.clubs||[]).find(c=>c.id===state.best.club_id);
         $("best-description").textContent=`${matched} ${matched===1?"player":"players"} currently match ${days[state.best.weekday]} at ${p.label}${club?` at ${club.name}`:" (Any location)"}. Need ${needed} more ${needed===1?"player":"players"} to unlock the Group Pick.`;
       }else{
-        $("best-description").textContent="No matching preferences yet. Add your day, time, duration and location. The Group Pick appears when 4 players match.";
+        $("best-description").textContent="No matching preferences yet. Add your day, time, duration and location. Upcoming Group Picks appear when 4 players match.";
       }
-      $("best-whatsapp").disabled=true;
       $("best-whatsapp").classList.add("hidden");
     }
     $("club-list").innerHTML=(data.clubs||[]).map(c=>`<span class="club-pill">${esc(c.name)}${c.area?`<small>· ${esc(c.area)}</small>`:""}</span>`).join("")||"<span class=\"muted\">No clubs added yet. Add your group’s favourite locations.</span>";
@@ -161,10 +188,14 @@
     if(state.channel) state.client.removeChannel(state.channel);
     state.channel=state.client.channel(`padel-${state.group.id}`).on("postgres_changes",{event:"*",schema:"public",table:"padel_availability",filter:`group_id=eq.${state.group.id}`},()=>refreshDashboard().catch(console.error)).on("postgres_changes",{event:"*",schema:"public",table:"padel_members",filter:`group_id=eq.${state.group.id}`},()=>refreshDashboard().catch(console.error)).on("postgres_changes",{event:"*",schema:"public",table:"padel_clubs",filter:`group_id=eq.${state.group.id}`},()=>refreshDashboard().catch(console.error)).subscribe();
   }
+  function matchMessage(match){
+    if(!match) return "Join our Padel Connect group to find a match.";
+    const p=decodePeriod(match.period),club=state.clubs.find(c=>c.id===match.club_id);
+    return `🎾 Padel match — ${state.group.name}\n\n${match.dateLabel}\n${p.label} (${p.time})\nPlayers matched: ${match.count}${club?`\nLocation: ${club.name}${club.area?` (${club.area})`:""}`:"\nLocation: Any location"}\n\nCan you make it?`;
+  }
   function bestMessage(){
-    if(!state.best||state.best.count<4)return "We need at least 4 players with the same day, time, duration and location to confirm a Group Pick.";
-    const p=decodePeriod(state.best.period),club=state.clubs.find(c=>c.id===state.best.club_id);
-    return `🎾 Padel plan — ${state.group.name}\n\nBest group slot: ${days[state.best.weekday]}, ${p.label} (${p.time})\nAvailable players: ${state.best.count}${club?`\nPreferred club: ${club.name}${club.area?` (${club.area})`:""}`:""}\n\nCan you make it?`;
+    if(!state.matches.length)return "We need at least 4 players with the same day, time, duration and location to confirm a Group Pick.";
+    return `🎾 Upcoming Padel matches — ${state.group.name}\n\n${state.matches.map(m=>{const p=decodePeriod(m.period),club=state.clubs.find(c=>c.id===m.club_id);return `${m.dateLabel} · ${p.label} (${p.time}) · ${m.count} players · ${club?club.name:"Any location"}`;}).join("\n")}\n\nWhich match can you join?`;
   }
   function shareWhatsApp(text){window.open(`https://wa.me/?text=${encodeURIComponent(text)}`,"_blank","noopener,noreferrer");}
   $("year").textContent=new Date().getFullYear();
