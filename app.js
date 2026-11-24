@@ -1,6 +1,7 @@
 /* Padel Connect — client application. All privileged operations run through Supabase RPC. */
 (() => {
   const cfg = window.PADEL_CONFIG || {};
+  const APP_URL = "https://ar-db.github.io/padel-connect/";
   const configured = cfg.SUPABASE_URL && !cfg.SUPABASE_URL.includes("YOUR-") && cfg.SUPABASE_ANON_KEY && !cfg.SUPABASE_ANON_KEY.includes("YOUR_");
   const $ = (id) => document.getElementById(id);
   const days = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
@@ -104,7 +105,13 @@
       const {error}=await state.client.auth.updateUser({email});
       if(error) throw error;
     }else{
-      const {error}=await state.client.auth.signInWithOtp({email,options:{shouldCreateUser:true}});
+      const {error}=await state.client.auth.signInWithOtp({
+        email,
+        options:{
+          shouldCreateUser:true,
+          emailRedirectTo:APP_URL
+        }
+      });
       if(error) throw error;
     }
     $("email-form").classList.add("hidden");
