@@ -57,9 +57,9 @@
     $("app-panel").classList.add("hidden");
     $("leave-group").classList.add("hidden");
     $("auth-heading").innerHTML=linking?"Keep your existing<br><span>player identity.</span>":"Sign in with<br><span>your email.</span>";
-    $("auth-description").textContent=message || (linking?"Verify an email to secure this existing account. Your groups, saved preferences and admin rights will stay connected.":"Enter your email and we’ll send you a one-time verification code. No password required.");
+    $("auth-description").textContent=message || (linking?"We’ll send a secure sign-in link to keep your existing groups, saved preferences and admin rights connected.":"Enter your email and we’ll send you a secure sign-in link. No password required.");
     $("email-form").classList.remove("hidden");
-    $("otp-form").classList.add("hidden");
+    $("email-sent-panel").classList.add("hidden");
   }
   async function routeAfterAuth(){
     $("auth-panel").classList.add("hidden");
@@ -102,34 +102,19 @@
     state.linkingAnonymous=!!(session && session.user && session.user.is_anonymous);
     if(state.linkingAnonymous){
       // Link the email to the current anonymous Supabase user so existing group memberships/admin rights keep the same UID.
-      const {error}=await state.client.auth.updateUser({email});
+      const {error}=await state.client.auth.updateUser({email},{emailRedirectTo:APP_URL});
       if(error) throw error;
     }else{
-      const {error}=await state.client.auth.signInWithOtp({
-        email,
-        options:{
-          shouldCreateUser:true,
-          emailRedirectTo:APP_URL
-        }
-      });
+      const {error}=await state.client.auth.signInWithOtp({email,options:{shouldCreateUser:true,emailRedirectTo:APP_URL}});
       if(error) throw error;
     }
     $("email-form").classList.add("hidden");
-    $("otp-form").classList.remove("hidden");
-    $("auth-description").textContent=`We sent a verification code to ${email}. Enter it below to continue.`;
-    toast("Verification code sent. Check your inbox.");
-  }
-  async function verifyEmailCode(){
-    const token=$("auth-otp").value.trim();
-    if(!state.pendingEmail) throw new Error("Enter your email and request a new code first.");
-    const type=state.linkingAnonymous?"email_change":"email";
-    const {data,error}=await state.client.auth.verifyOtp({email:state.pendingEmail,token,type});
-    if(error) throw error;
-    if(!data.session) throw new Error("Email verified, but no sign-in session was returned. Please sign in again.");
-    state.user=data.user||data.session.user;
-    state.pendingEmail="";state.linkingAnonymous=false;
-    toast("Email verified successfully.");
-    await routeAfterAuth();
+    $("email-sent-panel").classList.remove("hidden");
+    $("email-sent-address").textContent=email;
+    $("auth-description").textContent=state.linkingAnonymous
+      ? "Check your inbox to secure your existing Padel Connect identity. Click the link in the email to continue."
+      : "Check your inbox. Click the sign-in link in the email to securely access Padel Connect.";
+    toast("Sign-in link sent. Check your email.");
   }
   async function createGroup(name,display){
     const result=await call("create_padel_group",{p_group_name:name,p_display_name:display});
@@ -287,8 +272,11 @@
   function shareWhatsApp(text){window.open(`https://wa.me/?text=${encodeURIComponent(text)}`,"_blank","noopener,noreferrer");}
   $("year").textContent=new Date().getFullYear();
   $("email-form").addEventListener("submit",async e=>{e.preventDefault();const btn=$("send-code-button");btn.disabled=true;try{await sendEmailCode();}catch(err){toast(err.message||"Could not send verification code",true);}finally{btn.disabled=false;}});
-  $("otp-form").addEventListener("submit",async e=>{e.preventDefault();try{await verifyEmailCode();}catch(err){toast(err.message||"Could not verify code",true);}});
-  $("resend-code").addEventListener("click",async()=>{try{await sendEmailCode();}catch(err){toast(err.message||"Could not resend code",true);}});
+  $("change-email-button").addEventListener("click",()=>{
+    $("email-sent-panel").classList.add("hidden");
+    $("email-form").classList.remove("hidden");
+    $("auth-description").textContent="Enter your email and we’ll send you a secure sign-in link. No password required.";
+  });
   document.querySelectorAll(".tab").forEach(t=>t.addEventListener("click",()=>{document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("active",x===t));$("join-form").classList.toggle("hidden",t.dataset.tab!=="join");$("create-form").classList.toggle("hidden",t.dataset.tab!=="create");}));
   $("join-form").addEventListener("submit",async e=>{e.preventDefault();try{await joinGroup($("join-code").value.trim(),$("join-name").value.trim());}catch(err){toast(err.message||"Could not join group",true);}});
   $("create-form").addEventListener("submit",async e=>{e.preventDefault();try{await createGroup($("new-group-name").value.trim(),$("create-name").value.trim());}catch(err){toast(err.message||"Could not create group",true);}});

@@ -39,21 +39,23 @@
       <article class="panel welcome-panel auth-card">
         <div class="panel-kicker">SECURE YOUR PADEL IDENTITY</div>
         <h2 id="auth-heading">Sign in with<br><span>your email.</span></h2>
-        <p id="auth-description">Enter your email and we’ll send you a one-time verification code. No password required.</p>
+        <p id="auth-description">Enter your email and we’ll send you a secure sign-in link. No password required.</p>
         <form id="email-form" class="stack-form">
           <label>EMAIL ADDRESS<input id="auth-email" type="email" placeholder="you@example.com" autocomplete="email" required maxlength="254"></label>
-          <button class="primary-button" type="submit" id="send-code-button">Send verification code <span>→</span></button>
+          <button class="primary-button" type="submit" id="send-code-button">Send sign-in link <span>→</span></button>
         </form>
-        <form id="otp-form" class="stack-form hidden">
-          <label>VERIFICATION CODE<input id="auth-otp" inputmode="numeric" autocomplete="one-time-code" placeholder="6-digit code" required minlength="6" maxlength="8" pattern="[0-9]{6,8}"></label>
-          <button class="primary-button" type="submit">Verify and continue <span>→</span></button>
-          <button class="text-button" type="button" id="resend-code">Send another code</button>
-        </form>
+        <div id="email-sent-panel" class="stack-form hidden" role="status" aria-live="polite">
+          <div class="how-icon">✉</div>
+          <strong>Check your email</strong>
+          <p class="muted">We sent a secure sign-in link to <strong id="email-sent-address"></strong>.</p>
+          <p class="muted">Open that email and click the link. You’ll be returned to Padel Connect automatically.</p>
+          <button class="text-button" type="button" id="change-email-button">Use a different email</button>
+        </div>
         <p class="fine-print">Your email is used to keep your player identity unique and let you return from another device.</p>
       </article>
       <aside class="panel how-panel">
         <div class="how-icon">✉</div><div class="panel-kicker">QUICK AND PRIVATE</div>
-        <div class="how-step"><b>01</b><div><strong>Verify your email</strong><span>Enter the one-time code we send you.</span></div></div>
+        <div class="how-step"><b>01</b><div><strong>Check your email</strong><span>Click the secure sign-in link we send you.</span></div></div>
         <div class="how-step"><b>02</b><div><strong>Create or join your crew</strong><span>Use a private group invite code.</span></div></div>
         <div class="how-step"><b>03</b><div><strong>Keep your identity</strong><span>Return on your phone, tablet or laptop.</span></div></div>
       </aside>
