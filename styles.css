@@ -32,3 +32,6 @@
 
 /* Group administration */
 .crew-person-info{min-width:0;flex:1}.admin-tag{display:inline-block;vertical-align:middle;margin-left:5px;padding:3px 6px;border-radius:5px;background:#e8f3eb;color:#205e43;font-size:8px;letter-spacing:.08em}.admin-note{margin:0 0 4px;color:var(--muted);font-size:10px;line-height:1.5}.remove-member-button{flex:none;border:1px solid #ead5d2;background:#fff;color:#9a453c;border-radius:7px;padding:7px 9px;font:700 9px "DM Sans";cursor:pointer}.remove-member-button:hover{background:#fff4f2;border-color:#d9aaa4}.remove-member-button:disabled{opacity:.5;cursor:wait}
+
+/* Email OTP and cross-device group picker */
+.auth-card{max-width:100%}.stack-form input{width:100%}.stack-form button:disabled{opacity:.6;cursor:wait}.my-groups-panel{margin-top:22px;padding-top:17px;border-top:1px solid var(--line)}.my-groups-list{display:grid;gap:8px;margin-top:10px}.my-group-button{display:flex;align-items:center;justify-content:space-between;gap:12px;text-align:left;border:1px solid var(--line);background:#fbfcfa;border-radius:10px;padding:12px 14px;cursor:pointer;color:var(--ink)}.my-group-button:hover{border-color:#8eae98;background:#f3f7f1}.my-group-button strong{font-size:12px}.my-group-button span{font-size:10px;color:var(--muted)}#resend-code{justify-self:start;padding:5px 0;color:var(--green)}
