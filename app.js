@@ -6,7 +6,7 @@
   const days = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
   const durations = [60, 90];
   const startTimes = [];
-  for (let mins=17*60; mins<=22*60; mins+=15) {
+  for (let mins=17*60; mins<=22*60; mins+=30) {
     const h=Math.floor(mins/60), m=mins%60;
     startTimes.push(`${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`);
   }
