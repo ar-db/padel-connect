@@ -108,7 +108,22 @@ begin
   select * into v_member from public.padel_members where group_id=p_group_id and user_id=auth.uid();
   if not found then raise exception 'You are not a member of this group'; end if;
   select * into v_group from public.padel_groups where id=p_group_id;
-  return jsonb_build_object('group_id',v_group.id,'group_name',v_group.name,'invite_code',v_group.invite_code,'member_id',v_member.id,'display_name',v_member.display_name);
+  return jsonb_build_object('group_id',v_group.id,'group_name',v_group.name,'invite_code',v_group.invite_code,'member_id',v_member.id,'display_name',v_member.display_name,'is_admin',(v_group.created_by=auth.uid()));
+end $$;
+
+create or replace function public.remove_padel_group_member(p_group_id uuid,p_member_id uuid)
+returns jsonb language plpgsql security definer set search_path=public,pg_temp as $$
+declare v_owner uuid; v_target_user uuid; v_target_name text;
+begin
+  if auth.uid() is null then raise exception 'Please sign in and try again'; end if;
+  select created_by into v_owner from public.padel_groups where id=p_group_id;
+  if not found then raise exception 'Group not found'; end if;
+  if v_owner is distinct from auth.uid() then raise exception 'Only the person who created this group can remove members'; end if;
+  select user_id,display_name into v_target_user,v_target_name from public.padel_members where id=p_member_id and group_id=p_group_id;
+  if not found then raise exception 'This member is no longer in the group'; end if;
+  if v_target_user=v_owner then raise exception 'The group admin cannot be removed'; end if;
+  delete from public.padel_members where id=p_member_id and group_id=p_group_id;
+  return jsonb_build_object('removed',true,'member_id',p_member_id,'display_name',v_target_name);
 end $$;
 
 create or replace function public.get_padel_dashboard(p_group_id uuid)
@@ -159,6 +174,7 @@ end $$;
 revoke all on function public.create_padel_group(text,text) from public;
 revoke all on function public.join_padel_group(text,text) from public;
 revoke all on function public.get_my_padel_group(uuid) from public;
+revoke all on function public.remove_padel_group_member(uuid,uuid) from public;
 revoke all on function public.get_padel_dashboard(uuid) from public;
 revoke all on function public.save_padel_availability(uuid,jsonb) from public;
 revoke all on function public.add_padel_club(uuid,text,text) from public;
@@ -166,6 +182,7 @@ revoke all on function public.add_padel_club(uuid,text,text) from public;
 grant execute on function public.create_padel_group(text,text) to authenticated;
 grant execute on function public.join_padel_group(text,text) to authenticated;
 grant execute on function public.get_my_padel_group(uuid) to authenticated;
+grant execute on function public.remove_padel_group_member(uuid,uuid) to authenticated;
 grant execute on function public.get_padel_dashboard(uuid) to authenticated;
 grant execute on function public.save_padel_availability(uuid,jsonb) to authenticated;
 grant execute on function public.add_padel_club(uuid,text,text) to authenticated;

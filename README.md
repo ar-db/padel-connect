@@ -117,3 +117,7 @@ Each preference is added as one row containing weekday, start time, duration (60
 
 ### Upcoming Group Unlock sessions
 The dashboard lists all upcoming weekly availability overlaps with at least four distinct members matching the exact weekday, start time, duration, and location. Each weekday preference is mapped to its next calendar occurrence; if today's matching start time has already passed, the next occurrence is shown the following week. Matches are ordered by upcoming date and start time. Each match has its own WhatsApp share action. This is based on recurring weekly preferences and does not check live court inventory or create a court booking.
+
+
+### Group admin and member removal
+The person who creates a group is its administrator. The admin sees an ADMIN label and Remove controls beside other members in the crew list. Removing a member deletes that membership and the member's saved availability for this group; it does not delete their Supabase anonymous-auth identity or affect their membership in other groups. The group creator cannot be removed through this control. Existing Supabase projects must run `supabase/migrate-group-admin.sql` once in the SQL Editor. The migration uses the existing `padel_groups.created_by` owner field and enforces the permission inside a SECURITY DEFINER RPC, so hiding the button in the browser is not the security boundary.

@@ -1,0 +1,5 @@
+supabase/
+*.sql
+**/*.sql
+supabase/**
+supabase/*

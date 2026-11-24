@@ -65,12 +65,14 @@
   }
   async function createGroup(name,display){
     const result=await call("create_padel_group",{p_group_name:name,p_display_name:display});
-    state.group={id:result.group_id,name:result.group_name,invite_code:result.invite_code}; state.member={id:result.member_id,display_name:display};
+    state.group={id:result.group_id,name:result.group_name,invite_code:result.invite_code}; state.member={id:result.member_id,display_name:display,is_admin:true};
     await enterGroup();
   }
   async function joinGroup(code,display){
     const result=await call("join_padel_group",{p_invite_code:code,p_display_name:display});
-    state.group={id:result.group_id,name:result.group_name,invite_code:result.invite_code}; state.member={id:result.member_id,display_name:display};
+    state.group={id:result.group_id,name:result.group_name,invite_code:result.invite_code};
+    const me=await call("get_my_padel_group",{p_group_id:result.group_id});
+    state.member={id:result.member_id,display_name:display,is_admin:!!me.is_admin};
     await enterGroup();
   }
   async function enterGroup(){
@@ -147,7 +149,24 @@
     const data=state.dashboard||{members:[],availability:[],clubs:[]};
     $("member-count").textContent=`${(data.members||[]).length} players`;
     $("crew-count").textContent=(data.members||[]).length;
-    $("crew-list").innerHTML=(data.members||[]).map(m=>`<div class="crew-person"><span class="avatar">${esc(m.display_name.slice(0,2).toUpperCase())}</span><div><strong>${esc(m.display_name)}${m.id===state.member.id?" (you)":""}</strong><small>${(data.availability||[]).filter(a=>a.member_id===m.id).length} selected slots</small></div></div>`).join("")||'<p class="muted">No members yet.</p>';
+    $("crew-list").innerHTML=(data.members||[]).map(m=>{
+      const isMe=m.id===state.member.id;
+      const slotCount=(data.availability||[]).filter(a=>a.member_id===m.id).length;
+      const adminTag=isMe&&state.member.is_admin?'<span class="admin-tag">ADMIN</span>':"";
+      const removeButton=state.member.is_admin&&!isMe?`<button type="button" class="remove-member-button" data-member-id="${esc(m.id)}" data-member-name="${esc(m.display_name)}">Remove</button>`:"";
+      return `<div class="crew-person"><span class="avatar">${esc(m.display_name.slice(0,2).toUpperCase())}</span><div class="crew-person-info"><strong>${esc(m.display_name)}${isMe?" (you)":""} ${adminTag}</strong><small>${slotCount} selected slots</small></div>${removeButton}</div>`;
+    }).join("")||'<p class="muted">No members yet.</p>';
+    if(state.member.is_admin){
+      const note=document.createElement("p"); note.className="admin-note"; note.textContent="Group admin: you can remove duplicate or unwanted members. Their saved availability will also be deleted.";
+      $("crew-list").prepend(note);
+      $("crew-list").querySelectorAll(".remove-member-button").forEach(btn=>btn.addEventListener("click",async()=>{
+        const memberName=btn.dataset.memberName;
+        if(!confirm(`Remove ${memberName} from this group? Their saved availability will also be deleted.`)) return;
+        btn.disabled=true;
+        try{await call("remove_padel_group_member",{p_group_id:state.group.id,p_member_id:btn.dataset.memberId});toast(`${memberName} removed from the group.`);await refreshDashboard();}
+        catch(e){btn.disabled=false;toast(e.message||"Could not remove member",true);}
+      }));
+    }
     state.best=calculateBest(data);
     state.matches=calculateMatches(data);
     const kicker=$("best-kicker"), picks=$("group-picks-list");
@@ -220,7 +239,7 @@
         // Membership is verified by the dashboard RPC; display name is recovered from membership.
         const data=await call("get_my_padel_group",{p_group_id:storedId});
         state.group={id:data.group_id,name:data.group_name,invite_code:data.invite_code};
-        state.member={id:data.member_id,display_name:data.display_name};await enterGroup();
+        state.member={id:data.member_id,display_name:data.display_name,is_admin:!!data.is_admin};await enterGroup();
       }
     }catch(e){localStorage.removeItem("padel_group_id");showSetup();setStatus("Authentication error");console.error("Padel Connect startup/authentication error:",e);toast(e.message||"Could not sign in. Check Supabase Anonymous Sign-Ins.",true);}
   }
