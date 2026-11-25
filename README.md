@@ -2,7 +2,18 @@
 
 Static GitHub Pages frontend, Supabase Auth and PostgreSQL backend. Designed for the existing deployment at https://ar-db.github.io/padel-connect/.
 
-## Upgrade the existing app (recommended)
+## Upgrade from the auto-join creator release (Any club option)
+
+Replace `index.html`, `app.js`, and `styles.css` in GitHub and commit/push. Keep your existing `config.js`. No additional Supabase migration is needed if the auto-join creator migration is already installed. Choose **Any** beside the location field or from the suggestions to create a match without a fixed venue. The match card and WhatsApp message show “Any · Club to be decided”. The creator still joins Team A / Player 1 automatically. The creator or admin can edit the location later without losing existing players. The existing duplicate rule applies to Any as a location: another Any match for the same group/date/start is blocked, while matches at specific clubs remain separate. Any is a flexible venue label, not automatic cross-match merging or a court reservation.
+
+## Upgrade from the verified profiles & match planner release
+
+1. In Supabase SQL Editor, run **`supabase/migrate-auto-join-creator.sql`**. This replaces the existing save RPC without changing its signature. New matches insert the creator into Team A / Player 1 within the same database transaction. Edits do not register the creator again or alter any player positions.
+2. To repair the existing empty match, open `supabase/repair-empty-matches.sql`. Review the SELECT separately, then run the INSERT only for matches you want to repair (optionally filter by match UUID). It never overwrites existing player positions. Alternatively, simply click Join in Team A / Player 1 on the existing match.
+3. Replace `app.js` and `index.html` in GitHub (keep your configured `config.js`), add the new migration files, commit and push. Hard-refresh the page.
+4. Create a new match: it must display 1/4 and 3 spots left, your name in Team A / Player 1. Another member can claim any remaining slot; verify that editing a match preserves its players and that you can leave or move normally.
+
+## Upgrade from older availability-based releases (recommended)
 
 1. Back up your Supabase database. In SQL Editor run `supabase/migrate-group-admin.sql` and `supabase/migrate-email-auth.sql` if not already installed (both are additive and safe to rerun). Then run **`supabase/migrate-profiles-matches.sql`** in a new query. Check that it commits successfully. This migration keeps the existing groups, members, club records and old availability rows. It backfills verified profiles from existing memberships and creates new match tables. Do not run older time-slot migrations: those may clear old availability.
 2. Keep your current configured **`config.js`** from your existing GitHub repo. The archive's config is a placeholder, not your deployed credentials. Never overwrite your working config with the placeholder.
@@ -28,7 +39,7 @@ Run `supabase/schema.sql` followed by `supabase/migrate-profiles-matches.sql`. C
 
 Any group member can create a match: date, start time (17:00–22:00, every 30 minutes), duration (60/90 minutes), location. The location can be entered or chosen from group club suggestions. All times are interpreted in Europe/Madrid. The database blocks an exact duplicate group/date/start time/location, ignoring case and repeated whitespace. Different start times or locations are allowed; overlapping times are not prohibited. This does not book courts.
 
-Players join one of four slots, two per team. They can leave or move to an empty position. Match creators and group admins can edit details, close/reopen registration, remove/move players, or cancel matches. A full match displays 4/4; no skill level is collected. Removing a group member also removes their match slots through database foreign keys. Old weekly availability remains in the database but is not used by the new UI.
+The creator automatically occupies Team A / Player 1 when the match is created. Other members join one of the three remaining slots. They can leave or move to an empty position. Match creators and group admins can edit details, close/reopen registration, remove/move players, or cancel matches. A full match displays 4/4; no skill level is collected. Removing a group member also removes their match slots through database foreign keys. Old weekly availability remains in the database but is not used by the new UI.
 
 The dashboard refreshes every 15 seconds while visible; use Refresh for immediate updates. No extra Realtime publication configuration is required. WhatsApp opens a prefilled message; the user chooses the chat and sends it.
 
@@ -37,7 +48,7 @@ The dashboard refreshes every 15 seconds while visible; use Refresh for immediat
 1. Existing user: sign in on original browser and confirm profile name, group membership and admin access remain intact.
 2. Private browser: sign in with the same email, confirm name setup does not reappear, and confirm the existing group is visible. Refresh: no new email request.
 3. New email: verify link, save name, join with invite. On a second browser, verify the same email and check name is reused.
-4. Create a future match; attempt a second match with identical date/time/location (also with different capitalization or duration): database must reject it.
+4. Create a future match and verify the creator occupies slot 1 with three remaining slots; attempt a second match with identical date/time/location (also with different capitalization or duration): database must reject it.
 5. Join from two accounts, choose team positions, try claiming the same slot, leave and move. Verify a player cannot join twice. Fill all four slots if four test accounts are available.
 6. Test creator/admin edit, remove, close, reopen, and cancel. Confirm ordinary members cannot manage another person's match or access a different group's match IDs.
 7. Sign out locally, then sign back in. Verify the profile survives. Test WhatsApp sharing and group switch.
