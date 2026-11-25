@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20261125-identity2">
+  <link rel="stylesheet" href="styles.css?v=20261125-mobile1">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
@@ -21,7 +21,7 @@
 
   <main class="shell">
     <p id="verified-account" class="verified-account hidden" aria-live="polite"></p>
-    <section class="hero">
+    <section class="hero" id="hero">
       <div class="hero-copy">
         <div class="eyebrow"><span>YOUR CREW. YOUR COURT.</span><span class="eyebrow-line"></span><span>MÁLAGA</span></div>
         <h1>Good games<br>start <em>together.</em></h1>
@@ -101,10 +101,11 @@
         <article class="panel availability-panel">
           <div class="section-heading"><div><div class="panel-kicker">MATCH PLANNER</div><h3>Upcoming matches</h3></div><button id="refresh-matches" class="secondary-button" type="button">Refresh</button></div>
           <p class="muted">Málaga time · Choose an empty position to join a team.</p>
-          <form id="match-form" class="match-form stack-form">
+          <button id="toggle-match-form" class="primary-button mobile-match-toggle" type="button" aria-controls="match-form" aria-expanded="false">Create a match <span>+</span></button>
+          <form id="match-form" class="match-form stack-form mobile-collapsed">
             <h4 id="match-form-title">Create a match</h4>
-            <p class="muted">When you create a match, you automatically join Team A · Player 1.</p>
-            <label>DATE<input id="match-date" type="date" required></label>
+            <p class="muted match-form-help">When you create a match, you automatically join Team A · Player 1.</p>
+            <label class="match-date-field">DATE<input id="match-date" type="date" required></label>
             <label>START TIME<select id="match-time" required></select></label>
             <label>DURATION<select id="match-duration"><option value="60">60 min</option><option value="90">90 min</option></select></label>
             <div class="match-location-field"><label for="match-location">LOCATION</label><div class="location-choice"><input id="match-location" list="match-clubs" placeholder="Club or court" minlength="2" maxlength="80" required aria-describedby="any-location-help"><button type="button" class="secondary-button" id="choose-any-club">Any</button></div><datalist id="match-clubs"><option value="Any">Club to be decided</option></datalist><small id="any-location-help" class="muted">Choose Any if the time matters but the club does not.</small></div>
@@ -135,6 +136,6 @@
     <div id="toast" class="toast" role="status"></div>
   </main>
   <footer class="site-footer"><span>PADEL CONNECT © <span id="year"></span></span><span>Find a match. Play more.</span></footer>
-  <script src="config.js"></script><script src="app.js?v=20261125-identity2"></script>
+  <script src="config.js"></script><script src="app.js?v=20261125-mobile1"></script>
 </body>
 </html>

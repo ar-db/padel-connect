@@ -59,3 +59,11 @@ The dashboard refreshes every 15 seconds while visible; use Refresh for immediat
 ## Notes
 
 The single final SQL script supersedes all historical migrations. Do not run the old time-slot migrations: they cleared availability. The final script performs no automatic empty-match repair. No live Supabase database or production Auth/SMTP tests were performed. If an RPC is missing after installation, reload the PostgREST schema cache (`notify pgrst, 'reload schema';`).
+
+## Mobile-friendly release
+
+The phone dashboard prioritizes upcoming matches; the decorative hero is hidden on signed-in phone/tablet views. At widths up to 600px, use **Create a match** to expand the form; saving or cancelling collapses it again. Editing a match opens the form automatically. Player positions are arranged in two wider team columns, with larger touch targets, readable labels, responsive action buttons, and wrapping names and locations. The existing desktop match layout is retained. Form controls use at least 16px text on phones to reduce input zoom on iOS.
+
+This release changes the frontend only. `supabase/final-solution.sql` is unchanged from the email identity fix. If that SQL is already deployed, no database migration is needed. Copy `index.html`, `app.js`, `styles.css` and optionally this README to GitHub; preserve the configured `config.js`. The HTML includes a new asset version to reduce stale browser caches.
+
+Local checks: `node --check app.js` and `node tests/auth-flow.test.cjs`. Optional responsive test: install Python Playwright and Chromium, then `python tests/mobile-layout.test.py`. The browser test uses mock Auth/RPC data, not the live Supabase project. It covers 320, 375, 390, 430, 600, 768, 1024 and 1440px viewport widths, login controls, and the mobile create/edit form. Physical iOS/Android device testing is still recommended.
