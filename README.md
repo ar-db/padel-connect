@@ -44,7 +44,7 @@ Any group member can create a match: date, start time (17:00–22:00, every 30 m
 
 The creator automatically occupies Team A / Player 1 when the match is created. Other members join one of the three remaining slots. They can leave or move to an empty position. Match creators and group admins can edit details, close/reopen registration, remove/move players, or cancel matches. A full match displays 4/4; no skill level is collected. Removing a group member also removes their match slots through database foreign keys. Old weekly availability remains in the database but is not used by the new UI.
 
-The dashboard refreshes every 15 seconds while visible; use Refresh for immediate updates. No extra Realtime publication configuration is required. WhatsApp opens a prefilled message; the user chooses the chat and sends it.
+The dashboard refreshes every 15 seconds while visible and when the browser tab becomes visible or focused; use Refresh for immediate updates. Matches automatically disappear from the upcoming board at their scheduled start time in Europe/Madrid, whether empty, partly filled, full or closed. The browser also removes expired cached matches on its visible refresh cycle even if the network is unavailable. Expired records are retained in the database (not permanently deleted), and existing Supabase match-list filtering already excludes them. No SQL upgrade is necessary for this frontend expiry change. No extra Realtime publication configuration is required. WhatsApp opens a prefilled message; the user chooses the chat and sends it.
 
 ## Verify before sharing
 

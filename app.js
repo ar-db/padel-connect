@@ -7,7 +7,12 @@
   const locationValue=value=>isAnyClub(value)?'Any':value.trim();
   const locationLabel=value=>isAnyClub(value)?'Any · Club to be decided':value;
   const state={client:null,user:null,profile:null,group:null,member:null,matches:[],clubs:[],editing:null,refreshing:null,route:0,refreshTimer:null};
-  const dateToday=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Madrid',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+  // Match date and start time are stored as Málaga wall-clock values, not UTC.
+  const madridClock=new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/Madrid',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hourCycle:'h23'});
+  function madridNow(){const p=Object.fromEntries(madridClock.formatToParts(new Date()).map(({type,value})=>[type,value]));return `${p.year}-${p.month}-${p.day}T${p.hour}:${p.minute}:${p.second}`;}
+  const dateToday=()=>madridNow().slice(0,10);
+  const matchStart=m=>`${m.match_date}T${m.start_time.length===5?m.start_time+':00':m.start_time.slice(0,8)}`;
+  const isUpcoming=(m,now=madridNow())=>matchStart(m)>now;
   const formatDate=d=>new Date(d+'T12:00:00Z').toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short',timeZone:'Europe/Madrid'});
   const timeLabel=(t,d)=>{const [h,m]=t.split(':').map(Number);const fmt=n=>`${String(Math.floor(n/60)%24).padStart(2,'0')}:${String(n%60).padStart(2,'0')}`;return `${fmt(h*60+m)}–${fmt(h*60+m+d)}`;};
   const toast=(msg,bad=false)=>{const el=$('toast');el.textContent=msg;el.style.background=bad?'#8b3d35':'#173b30';el.classList.add('show');clearTimeout(toast.timer);toast.timer=setTimeout(()=>el.classList.remove('show'),4800);};
@@ -69,13 +74,30 @@
     $('group-title').textContent=info.group_name;$('group-code-label').textContent=`INVITE ${info.invite_code} · ${state.profile.display_name}`;
     resetEditor();$('match-list').renderSignature=null;$('match-list').innerHTML='<p class="muted">Loading matches…</p>';panel('app-panel');await refresh();
     // Polling also works without configuring Supabase Realtime publications.
-    if(epoch===state.route&&state.group?.id===info.group_id)state.refreshTimer=setInterval(()=>{if(!document.hidden)refresh().catch(e=>{if(epoch===state.route&&state.group?.id===info.group_id){console.warn(e);status('Refresh failed');}});},15000);
+    if(epoch===state.route&&state.group?.id===info.group_id)state.refreshTimer=setInterval(refreshVisibleGroup,15000);
   }
   function setMatchFormOpen(open){$('match-form').classList.toggle('mobile-collapsed',!open);const toggle=$('toggle-match-form');toggle.ariaExpanded=String(open);toggle.innerHTML=open?'Hide match form <span>−</span>':state.editing?'Continue editing <span>+</span>':'Create a match <span>+</span>'; }
   function resetEditor(){state.editing=null;setMatchFormOpen(false);$('match-form').reset();$('match-date').min=dateToday();$('match-date').value=dateToday();$('match-form-title').textContent='Create a match';$('save-match').innerHTML='Create match <span>+</span>';$('cancel-edit').classList.add('hidden');}
+  function pruneExpiredMatches(){
+    const now=madridNow(), upcoming=state.matches.filter(m=>isUpcoming(m,now));
+    if(upcoming.length===state.matches.length)return;
+    state.matches=upcoming;
+    if(state.editing&&!upcoming.some(m=>m.id===state.editing))resetEditor();
+    renderMatches();
+  }
+  function refreshVisibleGroup(){
+    if(document.hidden||!state.group)return;
+    const id=state.group.id,epoch=state.route;
+    // Remove expired cached matches even if the network is unavailable or slow.
+    pruneExpiredMatches();
+    if(state.refreshing?.id===id)return;
+    refresh().catch(e=>{if(epoch===state.route&&id===state.group?.id){console.warn(e);status('Refresh failed');}});
+  }
+  document.addEventListener('visibilitychange',refreshVisibleGroup);
+  window.addEventListener('focus',refreshVisibleGroup);
   async function refresh(){
-    const id=state.group?.id, epoch=state.route;if(!id)return;if(state.refreshing?.id===id){await state.refreshing.done; if(id!==state.group?.id||epoch!==state.route)return;}let release;const ticket={id,done:new Promise(r=>{release=r;})};state.refreshing=ticket;
-    try{const [dashboard,matches]=await Promise.all([rpc('get_padel_dashboard',{p_group_id:id}),rpc('list_padel_matches',{p_group_id:id})]);if(epoch!==state.route||id!==state.group?.id)return;state.matches=matches||[];state.clubs=dashboard.clubs||[];renderCrew(dashboard.members||[]);renderMatches();$('match-clubs').innerHTML='<option value="Any">Club to be decided</option>'+state.clubs.filter(c=>!isAnyClub(c.name)).map(c=>`<option value="${esc(c.name)}">${esc(c.area||'')}</option>`).join('');$('club-list').innerHTML=state.clubs.map(c=>`<span class="club-pill">${esc(c.name)}${c.area?`<small>· ${esc(c.area)}</small>`:''}</span>`).join('')||'<span class="muted">No saved clubs yet.</span>';status('Connected');}
+    const id=state.group?.id, epoch=state.route;if(!id)return;pruneExpiredMatches();if(state.refreshing?.id===id){await state.refreshing.done; if(id!==state.group?.id||epoch!==state.route)return;}let release;const ticket={id,done:new Promise(r=>{release=r;})};state.refreshing=ticket;
+    try{const [dashboard,matches]=await Promise.all([rpc('get_padel_dashboard',{p_group_id:id}),rpc('list_padel_matches',{p_group_id:id})]);if(epoch!==state.route||id!==state.group?.id)return;const now=madridNow();state.matches=(matches||[]).filter(m=>isUpcoming(m,now));if(state.editing&&!state.matches.some(m=>m.id===state.editing))resetEditor();state.clubs=dashboard.clubs||[];renderCrew(dashboard.members||[]);renderMatches();$('match-clubs').innerHTML='<option value="Any">Club to be decided</option>'+state.clubs.filter(c=>!isAnyClub(c.name)).map(c=>`<option value="${esc(c.name)}">${esc(c.area||'')}</option>`).join('');$('club-list').innerHTML=state.clubs.map(c=>`<span class="club-pill">${esc(c.name)}${c.area?`<small>· ${esc(c.area)}</small>`:''}</span>`).join('')||'<span class="muted">No saved clubs yet.</span>';status('Connected');}
     catch(e){if(epoch===state.route&&id===state.group?.id&&/not a member/i.test(e.message)){++state.route;stopGroup();localStorage.removeItem(storedKey());panel('setup-panel');await routeGroups(true);toast('This group is no longer available.');return;}throw e;}
     finally{if(state.refreshing===ticket)state.refreshing=null;release();}
   }
@@ -96,16 +118,17 @@
       const playerControls=players.filter(p=>m.can_manage||p.member_id===state.member.id).map(p=>`<div class="player-management"><div class="managed-player"><strong>${esc(p.display_name)}</strong><small>${teamName(p.slot)}</small></div><button type="button" class="secondary-button player-remove" data-act="leave" data-index="${i}" data-player="${esc(p.member_id)}" aria-label="${p.member_id===state.member.id?'Leave match':'Remove '+esc(p.display_name)}">${p.member_id===state.member.id?'Leave':'Remove'}</button>${empty.length&&(!m.registration_closed||m.can_manage)?`<select class="move-player" aria-label="Move ${esc(p.display_name)}" data-index="${i}" data-player="${esc(p.member_id)}"><option value="">Move to…</option>${empty.map(n=>`<option value="${n}">${teamName(n)}</option>`).join('')}</select>`:''}</div>`).join('');
       const management=m.can_manage?`<div class="match-management"><button type="button" class="secondary-button" data-act="edit" data-index="${i}">Edit match</button><button type="button" class="secondary-button" data-act="${m.registration_closed?'open':'close'}" data-index="${i}">${m.registration_closed?'Reopen':'Close sign-up'}</button><button type="button" class="remove-member-button" data-act="cancel" data-index="${i}">Cancel match</button></div>`:'';
       return `<article class="match-card"><div class="match-top"><div><div class="match-date">${esc(formatDate(m.match_date))}</div><h4>${esc(timeLabel(m.start_time,m.duration))} <small>· ${m.duration} min</small></h4><p class="match-location">${esc(locationLabel(m.location))}</p></div><span class="match-status ${players.length===4?'full':m.registration_closed?'closed':'open'}">${label}</span></div><div class="match-teams"><div class="team"><div class="team-label">TEAM A</div><div class="team-players">${slot(1)}${slot(2)}</div></div><div class="vs" aria-hidden="true">VS</div><div class="team"><div class="team-label">TEAM B</div><div class="team-players">${slot(3)}${slot(4)}</div></div></div><div class="match-actions"><button type="button" class="secondary-button share-match" data-act="share" data-index="${i}">WhatsApp ↗</button>${playerControls||management?`<details class="match-options" data-match="${esc(m.id)}"${expanded.has(String(m.id))?' open':''}><summary>Match options</summary><div class="options-content">${playerControls}${management}</div></details>`:''}</div></article>`;
-    }).join('')||'<div class="empty-matches"><strong>No upcoming matches</strong><p>Create the first match for your crew.</p></div>';
+    }).join('')||'<div class="empty-matches"><strong>No upcoming matches</strong><p>Create a new match for your crew.</p></div>';
     // Keep open controls and keyboard focus intact on unchanged polling responses.
     const signature=html.replace(/(<details class="match-options" data-match="[^"]*") open>/g,'$1>');
     if(list.renderSignature===signature)return;
     list.renderSignature=signature;
     list.innerHTML=html;
-    $('match-list').querySelectorAll('[data-act]').forEach(b=>b.onclick=()=>{const m=state.matches[Number(b.dataset.index)];if(!m)return;if(b.dataset.act==='share'){share(matchMessage(m));return;}if(b.dataset.act==='edit'){editMatch(m);return;}run(b,()=>matchAction(m,b.dataset.act,Number(b.dataset.slot)||null,b.dataset.player||null));});
+    $('match-list').querySelectorAll('[data-act]').forEach(b=>b.onclick=()=>{const m=state.matches[Number(b.dataset.index)];if(!m)return;if(!isUpcoming(m)){pruneExpiredMatches();toast('This match has already started.');return;}if(b.dataset.act==='share'){share(matchMessage(m));return;}if(b.dataset.act==='edit'){editMatch(m);return;}run(b,()=>matchAction(m,b.dataset.act,Number(b.dataset.slot)||null,b.dataset.player||null));});
     $('match-list').querySelectorAll('.move-player').forEach(s=>s.onchange=()=>{if(!s.value)return;const m=state.matches[Number(s.dataset.index)];if(m){const slot=Number(s.value);run(s,async()=>{try{await matchAction(m,'move',slot,s.dataset.player);}finally{s.value='';}});}});
   }
   async function matchAction(m,act,slot,member){
+    if(!isUpcoming(m)){pruneExpiredMatches();throw new Error('This match has already started.');}
     try{if(['join','leave','move'].includes(act)){if(act==='leave'&&member!==state.member.id&&!confirm('Remove this player?'))return;await rpc('change_padel_match_player',{p_group_id:state.group.id,p_match_id:m.id,p_action:act,p_slot:slot,p_member_id:member});}else{if(act==='cancel'&&!confirm('Cancel this match for all players?'))return;await rpc('manage_padel_match',{p_group_id:state.group.id,p_match_id:m.id,p_action:act});}toast('Match updated.');}finally{await refresh();}
   }
   function editMatch(m){state.editing=m.id;setMatchFormOpen(true);$('match-form-title').textContent='Edit match';$('match-date').value=m.match_date;$('match-time').value=m.start_time.slice(0,5);$('match-duration').value=m.duration;$('match-location').value=m.location;$('save-match').innerHTML='Save changes <span>→</span>';$('cancel-edit').classList.remove('hidden');$('match-form').scrollIntoView({behavior:'smooth',block:'center'});}
@@ -131,7 +154,7 @@
   document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active',x===t));$('join-form').classList.toggle('hidden',t.dataset.tab!=='join');$('create-form').classList.toggle('hidden',t.dataset.tab!=='create');});
   $('join-form').onsubmit=e=>{e.preventDefault();run(e.submitter,async()=>{const g=await rpc('join_padel_group',{p_invite_code:$('join-code').value.trim(),p_display_name:state.profile.display_name});await enterGroup(g);});};
   $('create-form').onsubmit=e=>{e.preventDefault();run(e.submitter,async()=>{const g=await rpc('create_padel_group',{p_group_name:$('new-group-name').value.trim(),p_display_name:state.profile.display_name});await enterGroup(g);});};
-  $('match-form').onsubmit=e=>{e.preventDefault();run(e.submitter,async()=>{await rpc('save_padel_match',{p_group_id:state.group.id,p_match_id:state.editing,p_match_date:$('match-date').value,p_start_time:$('match-time').value,p_duration:Number($('match-duration').value),p_location:locationValue($('match-location').value)});toast(state.editing?'Match updated.':'Match created. You joined Team A · Player 1.');resetEditor();await refresh();});};
+  $('match-form').onsubmit=e=>{e.preventDefault();run(e.submitter,async()=>{if(state.editing&&!state.matches.some(m=>m.id===state.editing&&isUpcoming(m))){resetEditor();pruneExpiredMatches();throw new Error('This match has already started or is no longer available.');}await rpc('save_padel_match',{p_group_id:state.group.id,p_match_id:state.editing,p_match_date:$('match-date').value,p_start_time:$('match-time').value,p_duration:Number($('match-duration').value),p_location:locationValue($('match-location').value)});toast(state.editing?'Match updated.':'Match created. You joined Team A · Player 1.');resetEditor();await refresh();});};
   $('choose-any-club').onclick=()=>{$('match-location').value='Any';};
   $('toggle-match-form').onclick=()=>setMatchFormOpen($('toggle-match-form').ariaExpanded!=='true');$('cancel-edit').onclick=resetEditor;$('refresh-matches').onclick=e=>run(e.currentTarget,refresh);
   $('club-form').onsubmit=e=>{e.preventDefault();run(e.submitter,async()=>{await rpc('add_padel_club',{p_group_id:state.group.id,p_name:$('club-name').value.trim(),p_area:$('club-area').value.trim()||null});$('club-form').reset();await refresh();toast('Club added.');});};

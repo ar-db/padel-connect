@@ -2,10 +2,11 @@
 from pathlib import Path
 from playwright.sync_api import sync_playwright
 root=Path(__file__).resolve().parents[1]
-mock='''window.supabase={createClient:()=>({auth:{getSession:async()=>({data:{session:window.testSession?{user}:null}}),getUser:async()=>({data:{user}}),onAuthStateChange(){}},rpc:async(fn)=>({data:({get_my_padel_profile:{user_id:user.id,email:user.email,display_name:'A very long player name'},get_my_padel_groups:[group],get_my_padel_group:group,get_padel_dashboard:{members:[{id:'m',display_name:'A very long player name'},{id:'other',display_name:'Another long player name'}],clubs:[{name:'Vals Club'}]},list_padel_matches:[{id:'match-1',match_date:'2026-12-01',start_time:'18:00:00',duration:90,location:'Any',registration_closed:false,can_manage:true,players:[{slot:1,member_id:'m',display_name:'A very long player name'}]},{id:'match-2',match_date:'2026-12-02',start_time:'17:30:00',duration:60,location:'Very long club name to check that the location wraps on a narrow device',registration_closed:false,can_manage:false,players:[{slot:3,member_id:'other',display_name:'Another long player name'}]}]})[fn]})})};const user={id:'user-1',email:'longer-player-email@example.com',email_confirmed_at:'2026-01-01',is_anonymous:false};const group={group_id:'g',group_name:'Friday Padel Crew with a longer group name',invite_code:'MALAGA-7K4P',member_id:'m',display_name:'A very long player name',is_admin:true};'''
+mock='''window.supabase={createClient:()=>({auth:{getSession:async()=>({data:{session:window.testSession?{user}:null}}),getUser:async()=>({data:{user}}),onAuthStateChange(){}},rpc:async(fn,args)=>{(window.rpcCalls??=[]).push({fn,args});return ({data:({get_my_padel_profile:{user_id:user.id,email:user.email,display_name:'A very long player name'},get_my_padel_groups:[group],get_my_padel_group:group,get_padel_dashboard:{members:[{id:'m',display_name:'A very long player name'},{id:'other',display_name:'Another long player name'}],clubs:[{name:'Vals Club'}]},list_padel_matches:[{id:'match-1',match_date:'2026-12-01',start_time:'18:00:00',duration:90,location:'Any',registration_closed:false,can_manage:true,players:[{slot:1,member_id:'m',display_name:'A very long player name'}]},{id:'match-2',match_date:'2026-12-02',start_time:'17:30:00',duration:60,location:'Very long club name to check that the location wraps on a narrow device',registration_closed:false,can_manage:false,players:[{slot:3,member_id:'other',display_name:'Another long player name'}]}]})[fn]})}})};const user={id:'user-1',email:'longer-player-email@example.com',email_confirmed_at:'2026-01-01',is_anonymous:false};const group={group_id:'g',group_name:'Friday Padel Crew with a longer group name',invite_code:'MALAGA-7K4P',member_id:'m',display_name:'A very long player name',is_admin:true};'''
 import re, shutil
 
 def load(page,session):
+    page.clock.set_fixed_time(__import__('datetime').datetime(2026,11,25,20,0,tzinfo=__import__('datetime').timezone.utc))
     html=(root/'index.html').read_text()
     html=re.sub(r'<link[^>]+(?:fonts\.googleapis|fonts\.gstatic)[^>]*>','',html)
     html=re.sub(r'<link rel="stylesheet"[^>]+>',lambda m:'<style>'+ (root/'styles.css').read_text()+'</style>',html)
@@ -22,6 +23,12 @@ with sync_playwright() as pw:
         load(page,True);page.locator('.match-card').first.wait_for(timeout=5000)
         assert page.evaluate('document.documentElement.scrollWidth <= innerWidth'),f'page overflow at {width}'
         assert page.locator('.match-card').count()==2
+        assert not page.locator('#hero').is_visible()
+        assert not page.locator('[data-act=edit]').first.is_visible()
+        for slot in page.locator('.match-player').all():
+            box=slot.bounding_box();assert box['height']>=44 and box['width']>=90, (width,box)
+        assert page.locator('.match-card').first.bounding_box()['height']<310, width
+        assert page.locator('.match-player.vacant:not(:disabled)').count()==3
         if width<=600:
             assert not page.locator('#match-form').is_visible()
             assert not page.locator('#hero').is_visible()
@@ -31,10 +38,20 @@ with sync_playwright() as pw:
             assert page.locator('#match-location').bounding_box()['width']>=120
             assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
             page.locator('#toggle-match-form').click();assert not page.locator('#match-form').is_visible()
-            page.locator('[data-act=edit]').first.click();assert page.locator('#match-form').is_visible()
+            page.locator('.match-options summary').first.click();page.locator('[data-act=edit]').first.click();assert page.locator('#match-form').is_visible()
             assert page.locator('#match-form-title').inner_text()=='Edit match'
-            page.locator('#cancel-edit').click();assert not page.locator('#match-form').is_visible()
-        else: assert page.locator('#match-form').is_visible()
-        if width==390: page.locator('.match-card').first.screenshot(path='/tmp/padel-mobile-match.png')
+            page.locator('#cancel-edit').click();assert not page.locator('#match-form').is_visible();page.locator('.match-options summary').first.click()
+        else: assert not page.locator('#match-form').is_visible()
+        if width==390:
+            page.locator('.match-options summary').first.click();assert page.locator('.move-player').first.is_visible()
+            page.locator('.move-player').first.select_option('2')
+            page.wait_for_function("window.rpcCalls.some(c=>c.fn==='change_padel_match_player' && c.args.p_action==='move' && c.args.p_slot===2)")
+            page.locator('[data-act=leave]').first.click()
+            page.wait_for_function("window.rpcCalls.some(c=>c.fn==='change_padel_match_player' && c.args.p_action==='leave')")
+            page.locator('.match-player.vacant:not(:disabled)').first.click()
+            page.wait_for_function("window.rpcCalls.some(c=>c.fn==='change_padel_match_player' && c.args.p_action==='join' && c.args.p_match_id==='match-2')")
+            page.locator('#refresh-matches').click();assert page.locator('.match-options').first.get_attribute('open') is not None
+            page.locator('.match-options summary').first.click()
+
         page.close();print(f'PASS: dashboard {width}px',flush=True)
     page=browser.new_page(viewport={'width':320,'height':700});load(page,False);page.locator('#email-form').wait_for();assert page.evaluate('document.documentElement.scrollWidth <= innerWidth');assert page.locator('#auth-email').bounding_box()['height']>=44;assert page.locator('#send-code-button').bounding_box()['height']>=44;print('PASS: login 320px');browser.close()
