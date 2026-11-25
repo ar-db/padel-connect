@@ -9,14 +9,14 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20261125-mobile1">
+  <link rel="stylesheet" href="styles.css?v=20261125-compact2">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
   <div class="ambient ambient-one"></div><div class="ambient ambient-two"></div>
   <header class="topbar">
     <a class="brand" href="#"><span class="brand-mark">P</span><span>PADEL<span class="brand-light">CONNECT</span></span></a>
-    <div class="topbar-right"><span class="live-dot"></span><span id="connection-label">Connecting</span><button class="text-button hidden" id="leave-group">Switch group</button><button class="text-button hidden" id="sign-out">Sign out</button></div>
+    <div class="topbar-right"><span class="live-dot"></span><span id="connection-label" role="status">Connecting</span><button class="text-button hidden" id="leave-group">Switch group</button><button class="text-button hidden" id="sign-out">Sign out</button></div>
   </header>
 
   <main class="shell">
@@ -100,7 +100,7 @@
       <div class="dashboard-grid">
         <article class="panel availability-panel">
           <div class="section-heading"><div><div class="panel-kicker">MATCH PLANNER</div><h3>Upcoming matches</h3></div><button id="refresh-matches" class="secondary-button" type="button">Refresh</button></div>
-          <p class="muted">Málaga time · Choose an empty position to join a team.</p>
+          <p class="muted">Málaga time · Tap an open spot to join.</p>
           <button id="toggle-match-form" class="primary-button mobile-match-toggle" type="button" aria-controls="match-form" aria-expanded="false">Create a match <span>+</span></button>
           <form id="match-form" class="match-form stack-form mobile-collapsed">
             <h4 id="match-form-title">Create a match</h4>
@@ -136,6 +136,6 @@
     <div id="toast" class="toast" role="status"></div>
   </main>
   <footer class="site-footer"><span>PADEL CONNECT © <span id="year"></span></span><span>Find a match. Play more.</span></footer>
-  <script src="config.js"></script><script src="app.js?v=20261125-mobile1"></script>
+  <script src="config.js"></script><script src="app.js?v=20261125-compact2"></script>
 </body>
 </html>
