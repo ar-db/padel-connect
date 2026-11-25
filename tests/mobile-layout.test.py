@@ -2,7 +2,7 @@
 from pathlib import Path
 from playwright.sync_api import sync_playwright
 root=Path(__file__).resolve().parents[1]
-mock='''window.supabase={createClient:()=>({auth:{getSession:async()=>({data:{session:window.testSession?{user}:null}}),getUser:async()=>({data:{user}}),onAuthStateChange(){}},rpc:async(fn,args)=>{(window.rpcCalls??=[]).push({fn,args});return ({data:({get_my_padel_profile:{user_id:user.id,email:user.email,display_name:'A very long player name'},get_my_padel_groups:[group],get_my_padel_group:group,get_padel_dashboard:{members:[{id:'m',display_name:'A very long player name'},{id:'other',display_name:'Another long player name'}],clubs:[{name:'Vals Club'}]},list_padel_matches:[{id:'match-1',match_date:'2026-12-01',start_time:'18:00:00',duration:90,location:'Any',registration_closed:false,can_manage:true,players:[{slot:1,member_id:'m',display_name:'A very long player name'}]},{id:'match-2',match_date:'2026-12-02',start_time:'17:30:00',duration:60,location:'Very long club name to check that the location wraps on a narrow device',registration_closed:false,can_manage:false,players:[{slot:3,member_id:'other',display_name:'Another long player name'}]}]})[fn]})}})};const user={id:'user-1',email:'longer-player-email@example.com',email_confirmed_at:'2026-01-01',is_anonymous:false};const group={group_id:'g',group_name:'Friday Padel Crew with a longer group name',invite_code:'MALAGA-7K4P',member_id:'m',display_name:'A very long player name',is_admin:true};'''
+mock='''window.supabase={createClient:()=>({auth:{getSession:async()=>({data:{session:window.testSession?{user}:null}}),getUser:async()=>({data:{user}}),onAuthStateChange(){}},rpc:async(fn,args)=>{(window.rpcCalls??=[]).push({fn,args});if(fn==='set_padel_court_booked'){window.courtBooked=args.p_booked;return {data:null};}return ({data:({get_my_padel_profile:{user_id:user.id,email:user.email,display_name:'A very long player name'},get_my_padel_groups:[group],get_my_padel_group:group,get_padel_dashboard:{members:[{id:'m',display_name:'A very long player name'},{id:'other',display_name:'Another long player name'}],clubs:[{name:'Vals Club'}]},list_padel_matches:[{id:'match-1',match_date:'2026-12-01',start_time:'18:00:00',duration:90,location:'Vals Club',court_booked:!!window.courtBooked,schedule_revision:'test-revision',registration_closed:false,can_manage:true,players:[{slot:1,member_id:'m',display_name:'A very long player name'}]},{id:'match-2',match_date:'2026-12-02',start_time:'17:30:00',duration:60,location:'Very long club name to check that the location wraps on a narrow device',registration_closed:false,can_manage:false,players:[{slot:3,member_id:'other',display_name:'Another long player name'}]}]})[fn]})}})};const user={id:'user-1',email:'longer-player-email@example.com',email_confirmed_at:'2026-01-01',is_anonymous:false};const group={group_id:'g',group_name:'Friday Padel Crew with a longer group name',invite_code:'MALAGA-7K4P',member_id:'m',display_name:'A very long player name',is_admin:true};'''
 import re, shutil
 
 def load(page,session):
@@ -42,7 +42,17 @@ with sync_playwright() as pw:
             assert page.locator('#match-form-title').inner_text()=='Edit match'
             page.locator('#cancel-edit').click();assert not page.locator('#match-form').is_visible();page.locator('.match-options summary').first.click()
         else: assert not page.locator('#match-form').is_visible()
+        assert page.locator('.court-toggle').count()==1
+        assert page.locator('.court-toggle').bounding_box()['height']>=44
+        assert page.locator('.court-readonly').inner_text()=='Not booked'
         if width==390:
+            page.on('dialog',lambda dialog: dialog.accept())
+            page.locator('.court-toggle').click()
+            page.wait_for_function("document.querySelector('.court-toggle').getAttribute('aria-pressed')==='true'")
+            assert page.locator('.court-toggle').inner_text().strip().endswith('Booked!')
+            assert page.evaluate("window.rpcCalls.some(c=>c.fn==='set_padel_court_booked' && c.args.p_booked===true && c.args.p_schedule_revision==='test-revision')")
+            page.locator('.court-toggle').click()
+            page.wait_for_function("document.querySelector('.court-toggle').getAttribute('aria-pressed')==='false'")
             page.locator('.match-options summary').first.click();assert page.locator('.move-player').first.is_visible()
             page.locator('.move-player').first.select_option('2')
             page.wait_for_function("window.rpcCalls.some(c=>c.fn==='change_padel_match_player' && c.args.p_action==='move' && c.args.p_slot===2)")

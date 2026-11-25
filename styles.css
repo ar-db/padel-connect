@@ -258,3 +258,16 @@ body{font-family:"DM Sans",system-ui,sans-serif}
   .topbar-right{flex:0 1 auto}
   .topbar-right .live-dot{margin:0 3px}
 }
+
+/* Court reservation is independent of the four player positions. */
+.court-row{display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0;margin-top:1px}
+.court-row .match-location{flex:1;min-width:0;margin:0;overflow-wrap:anywhere}
+.court-toggle,.court-readonly{flex:none;display:inline-flex;align-items:center;justify-content:center;max-width:48%;font:700 11px/1.2 "DM Sans",system-ui,sans-serif;color:#5d695f}
+.court-toggle{appearance:none;border:0;background:transparent;cursor:pointer;min-height:44px;padding:4px 0;border-radius:6px}
+.court-chip{display:inline-flex;align-items:center;gap:5px;padding:5px 7px;border:1px solid #c8d5ca;border-radius:6px;background:#f6f8f5;text-align:left}
+.court-dot{width:14px;height:14px;flex:none;border:1.5px solid #738779;border-radius:50%;display:grid;place-items:center;font-size:10px;line-height:1}
+.is-booked .court-chip{color:#1b573a;background:#e2f1e5;border-color:#a5c8ad}
+.is-booked .court-dot{color:white;background:#246341;border-color:#246341}
+.court-toggle:hover:not(:disabled) .court-chip{border-color:#246341}
+.court-toggle:focus-visible{outline:2px solid #246341;outline-offset:2px}
+.court-toggle:disabled{opacity:.6;cursor:wait}
