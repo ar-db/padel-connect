@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20261125-anyclub1">
+  <link rel="stylesheet" href="styles.css?v=20261125-deletegroup1">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
@@ -115,6 +115,11 @@
           <article class="panel crew-panel">
             <div class="section-heading"><div><div class="panel-kicker">THE LINE-UP</div><h3>Your crew</h3></div><span class="count-pill" id="crew-count">0</span></div>
             <div id="crew-list" class="crew-list"><p class="muted">Your group members will appear here.</p></div>
+            <div id="group-admin-controls" class="group-admin-controls hidden">
+              <div class="panel-kicker">GROUP ADMIN</div>
+              <p class="muted">Permanently delete this group and its matches for everyone.</p>
+              <button type="button" id="delete-group" class="secondary-button delete-group-button">Delete group</button>
+            </div>
           </article>
         </aside>
       </div>
@@ -129,6 +134,6 @@
     <div id="toast" class="toast" role="status"></div>
   </main>
   <footer class="site-footer"><span>PADEL CONNECT © <span id="year"></span></span><span>Find a match. Play more.</span></footer>
-  <script src="config.js"></script><script src="app.js?v=20261125-anyclub1"></script>
+  <script src="config.js"></script><script src="app.js?v=20261125-deletegroup1"></script>
 </body>
 </html>

@@ -41,3 +41,10 @@
 
 /* Flexible venue selection */
 .match-location-field{display:flex;flex-direction:column;gap:6px;min-width:0}.location-choice{display:flex;align-items:stretch;gap:6px}.location-choice input{flex:1;min-width:0;width:100%}.location-choice button{flex:none;color:var(--green);font-size:12px;padding:8px 11px}.match-location-field small{font-size:10px;line-height:1.4}
+
+/* Group owner controls: separate destructive action from everyday match controls. */
+.group-admin-controls{margin-top:20px;padding-top:16px;border-top:1px solid var(--line)}
+.group-admin-controls p{margin:8px 0 12px}
+.delete-group-button{color:#9a453c;border-color:#ead5d2;width:100%}
+.delete-group-button:hover{background:#fff4f2;border-color:#d9aaa4}
+.delete-group-button:disabled{opacity:.5;cursor:wait}

@@ -12,7 +12,7 @@
   const timeLabel=(t,d)=>{const [h,m]=t.split(':').map(Number);const fmt=n=>`${String(Math.floor(n/60)%24).padStart(2,'0')}:${String(n%60).padStart(2,'0')}`;return `${fmt(h*60+m)}–${fmt(h*60+m+d)}`;};
   const toast=(msg,bad=false)=>{const el=$('toast');el.textContent=msg;el.style.background=bad?'#8b3d35':'#173b30';el.classList.add('show');clearTimeout(toast.timer);toast.timer=setTimeout(()=>el.classList.remove('show'),4800);};
   const status=s=>$('connection-label').textContent=s;
-  const panel=id=>{for(const p of ['auth-panel','profile-panel','setup-panel','app-panel'])$(p).classList.toggle('hidden',p!==id);$('leave-group').classList.toggle('hidden',id!=='app-panel');$('sign-out').classList.toggle('hidden',!state.user);};
+  const panel=id=>{for(const p of ['auth-panel','profile-panel','setup-panel','app-panel'])$(p).classList.toggle('hidden',p!==id);$('leave-group').classList.toggle('hidden',id!=='app-panel');$('sign-out').classList.toggle('hidden',!state.user);$('group-admin-controls').classList.toggle('hidden',id!=='app-panel'||!state.member?.is_admin);};
   const rpc=async(fn,args={})=>{const {data,error}=await state.client.rpc(fn,args);if(error)throw error;return data;};
   const run=async(button,fn)=>{if(button?.disabled)return;if(button)button.disabled=true;try{await fn();}catch(e){console.error(e);toast(e.message||'Something went wrong. Please try again.',true);}finally{if(button)button.disabled=false;}};
   const storedKey=()=>`padel_group_id:${state.user?.id}`;
@@ -58,13 +58,13 @@
     $('group-title').textContent=info.group_name;$('group-code-label').textContent=`INVITE ${info.invite_code} · ${state.profile.display_name}`;
     resetEditor();$('match-list').innerHTML='<p class="muted">Loading matches…</p>';panel('app-panel');await refresh();
     // Polling also works without configuring Supabase Realtime publications.
-    if(epoch===state.route&&state.group?.id===info.group_id)state.refreshTimer=setInterval(()=>{if(!document.hidden)refresh().catch(e=>{console.warn(e);status('Refresh failed');});},15000);
+    if(epoch===state.route&&state.group?.id===info.group_id)state.refreshTimer=setInterval(()=>{if(!document.hidden)refresh().catch(e=>{if(epoch===state.route&&state.group?.id===info.group_id){console.warn(e);status('Refresh failed');}});},15000);
   }
   function resetEditor(){state.editing=null;$('match-form').reset();$('match-date').min=dateToday();$('match-date').value=dateToday();$('match-form-title').textContent='Create a match';$('save-match').innerHTML='Create match <span>+</span>';$('cancel-edit').classList.add('hidden');}
   async function refresh(){
     const id=state.group?.id, epoch=state.route;if(!id)return;if(state.refreshing?.id===id){await state.refreshing.done; if(id!==state.group?.id||epoch!==state.route)return;}let release;const ticket={id,done:new Promise(r=>{release=r;})};state.refreshing=ticket;
     try{const [dashboard,matches]=await Promise.all([rpc('get_padel_dashboard',{p_group_id:id}),rpc('list_padel_matches',{p_group_id:id})]);if(epoch!==state.route||id!==state.group?.id)return;state.matches=matches||[];state.clubs=dashboard.clubs||[];renderCrew(dashboard.members||[]);renderMatches();$('match-clubs').innerHTML='<option value="Any">Club to be decided</option>'+state.clubs.filter(c=>!isAnyClub(c.name)).map(c=>`<option value="${esc(c.name)}">${esc(c.area||'')}</option>`).join('');$('club-list').innerHTML=state.clubs.map(c=>`<span class="club-pill">${esc(c.name)}${c.area?`<small>· ${esc(c.area)}</small>`:''}</span>`).join('')||'<span class="muted">No saved clubs yet.</span>';status('Connected');}
-    catch(e){if(epoch===state.route&&id===state.group?.id&&/not a member/i.test(e.message)){stopGroup();localStorage.removeItem(storedKey());await routeGroups(true);}throw e;}
+    catch(e){if(epoch===state.route&&id===state.group?.id&&/not a member/i.test(e.message)){++state.route;stopGroup();localStorage.removeItem(storedKey());panel('setup-panel');await routeGroups(true);toast('This group is no longer available.');return;}throw e;}
     finally{if(state.refreshing===ticket)state.refreshing=null;release();}
   }
   function renderCrew(members){$('member-count').textContent=`${members.length} players`;$('crew-count').textContent=members.length;$('crew-list').innerHTML=members.map(m=>`<div class="crew-person"><div class="avatar">${esc(m.display_name.slice(0,2).toUpperCase())}</div><div class="crew-person-info"><strong>${esc(m.display_name)}</strong>${m.id===state.member.id?'<small>You'+(state.member.is_admin?' · Admin':'')+'</small>':''}</div>${state.member.is_admin&&m.id!==state.member.id?`<button class="remove-member-button" data-member="${esc(m.id)}">Remove</button>`:''}</div>`).join('');$('crew-list').querySelectorAll('[data-member]').forEach(b=>b.onclick=()=>run(b,async()=>{if(!confirm('Remove this member and their match positions from this group?'))return;await rpc('remove_padel_group_member',{p_group_id:state.group.id,p_member_id:b.dataset.member});await refresh();toast('Member removed.');}));}
@@ -106,6 +106,16 @@
   $('club-form').onsubmit=e=>{e.preventDefault();run(e.submitter,async()=>{await rpc('add_padel_club',{p_group_id:state.group.id,p_name:$('club-name').value.trim(),p_area:$('club-area').value.trim()||null});$('club-form').reset();await refresh();toast('Club added.');});};
   $('copy-invite').onclick=e=>run(e.currentTarget,async()=>{await navigator.clipboard.writeText(inviteUrl());toast('Invite copied.');});$('share-whatsapp').onclick=()=>share(`Join our private Padel Connect crew: ${inviteUrl()}`);
   $('leave-group').onclick=e=>run(e.currentTarget,async()=>{++state.route;stopGroup();localStorage.removeItem(storedKey());await routeGroups(true);});
+  $('delete-group').onclick=e=>run(e.currentTarget,async()=>{
+    if(!state.group||!state.member?.is_admin)return;
+    const {id,name}=state.group, epoch=state.route;
+    if(!confirm(`Permanently delete "${name}"?\n\nAll matches, player positions, saved clubs and memberships in this group will be deleted for everyone. User accounts and other groups will not be affected. This cannot be undone.`))return;
+    await rpc('delete_padel_group',{p_group_id:id});
+    if(epoch!==state.route||state.group?.id!==id)return;
+    ++state.route;stopGroup();localStorage.removeItem(storedKey());
+    $('my-groups-panel').innerHTML='';$('my-groups-panel').classList.add('hidden');
+    panel('setup-panel');toast('Group deleted.');await routeGroups(true);
+  });
   $('sign-out').onclick=e=>run(e.currentTarget,async()=>{const {error}=await state.client.auth.signOut({scope:'local'});if(error)throw error;localStorage.removeItem('padel_pending_invite');await authenticate(null);});
   async function init(){
     if(!cfg.SUPABASE_URL||cfg.SUPABASE_URL.includes('YOUR-')||!cfg.SUPABASE_ANON_KEY||cfg.SUPABASE_ANON_KEY.includes('YOUR_')){showAuth();status('Setup required');$('auth-description').textContent='Keep your existing configured config.js or add your Supabase URL and public key.';return;}

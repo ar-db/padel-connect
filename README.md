@@ -2,6 +2,15 @@
 
 Static GitHub Pages frontend, Supabase Auth and PostgreSQL backend. Designed for the existing deployment at https://ar-db.github.io/padel-connect/.
 
+## Upgrade from the Any club release (delete group)
+
+1. Back up your Supabase database. Run `supabase/migrate-delete-group.sql` in Supabase SQL Editor. It adds an owner-only RPC and does not delete existing groups when installed.
+2. Replace `index.html`, `app.js`, `styles.css`, and `README.md`, add the new migration, and commit/push. Keep your configured `config.js`.
+3. Open a group you created. Under **Your crew → Group admin**, select **Delete group** and confirm the warning. This permanently deletes that group, its invite code, members' memberships, clubs, matches, positions and old availability for everyone. User accounts, saved profiles and other groups remain intact. The dashboard returns to the group selector; other connected members return to their selector on the next refresh (normally within 15 seconds while visible).
+4. Test on a disposable group: cancel the confirmation (nothing changes), then confirm deletion; verify a normal member cannot see the button or invoke the RPC successfully. Verify the deleted invite code fails and all users can still sign in with their saved names.
+
+The current schema defines the group creator as its only admin; this release does not introduce delegated admins.
+
 ## Upgrade from the auto-join creator release (Any club option)
 
 Replace `index.html`, `app.js`, and `styles.css` in GitHub and commit/push. Keep your existing `config.js`. No additional Supabase migration is needed if the auto-join creator migration is already installed. Choose **Any** beside the location field or from the suggestions to create a match without a fixed venue. The match card and WhatsApp message show “Any · Club to be decided”. The creator still joins Team A / Player 1 automatically. The creator or admin can edit the location later without losing existing players. The existing duplicate rule applies to Any as a location: another Any match for the same group/date/start is blocked, while matches at specific clubs remain separate. Any is a flexible venue label, not automatic cross-match merging or a court reservation.
@@ -15,7 +24,7 @@ Replace `index.html`, `app.js`, and `styles.css` in GitHub and commit/push. Keep
 
 ## Upgrade from older availability-based releases (recommended)
 
-1. Back up your Supabase database. In SQL Editor run `supabase/migrate-group-admin.sql` and `supabase/migrate-email-auth.sql` if not already installed (both are additive and safe to rerun). Then run **`supabase/migrate-profiles-matches.sql`** in a new query. Check that it commits successfully. This migration keeps the existing groups, members, club records and old availability rows. It backfills verified profiles from existing memberships and creates new match tables. Do not run older time-slot migrations: those may clear old availability.
+1. Back up your Supabase database. In SQL Editor run `supabase/migrate-group-admin.sql` and `supabase/migrate-email-auth.sql` if not already installed (both are additive and safe to rerun). Then run **`supabase/migrate-profiles-matches.sql`** in a new query, followed by `supabase/migrate-delete-group.sql`. Check that it commits successfully. This migration keeps the existing groups, members, club records and old availability rows. It backfills verified profiles from existing memberships and creates new match tables. Do not run older time-slot migrations: those may clear old availability.
 2. Keep your current configured **`config.js`** from your existing GitHub repo. The archive's config is a placeholder, not your deployed credentials. Never overwrite your working config with the placeholder.
 3. Replace `index.html`, `app.js`, `styles.css`, and `README.md`; add `supabase/migrate-profiles-matches.sql` to your repository. Commit and push to your GitHub Pages publishing branch. Keep `.nojekyll`.
 4. Authentication → URL Configuration: Site URL and allowed redirect URL must be exactly `https://ar-db.github.io/padel-connect/` (including the trailing slash).
@@ -24,7 +33,7 @@ Replace `index.html`, `app.js`, and `styles.css` in GitHub and commit/push. Keep
 
 ## New installation
 
-Run `supabase/schema.sql` followed by `supabase/migrate-profiles-matches.sql`. Configure Auth and URLs as above. Set `config.js` with the project URL and anon/publishable key, never a service-role or secret key. Publish the frontend files at the root of the `main` branch via Settings → Pages. If your deployment URL differs, change `APP_URL` in `app.js` and the allowed Auth redirect URL accordingly.
+Run `supabase/schema.sql`, `supabase/migrate-profiles-matches.sql`, then `supabase/migrate-delete-group.sql`. Configure Auth and URLs as above. Set `config.js` with the project URL and anon/publishable key, never a service-role or secret key. Publish the frontend files at the root of the `main` branch via Settings → Pages. If your deployment URL differs, change `APP_URL` in `app.js` and the allowed Auth redirect URL accordingly.
 
 ## Login and profile behavior
 
