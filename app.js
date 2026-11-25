@@ -15,13 +15,19 @@
   const panel=id=>{for(const p of ['auth-panel','profile-panel','setup-panel','app-panel'])$(p).classList.toggle('hidden',p!==id);$('leave-group').classList.toggle('hidden',id!=='app-panel');$('sign-out').classList.toggle('hidden',!state.user);$('group-admin-controls').classList.toggle('hidden',id!=='app-panel'||!state.member?.is_admin);};
   const rpc=async(fn,args={})=>{const {data,error}=await state.client.rpc(fn,args);if(error)throw error;return data;};
   const run=async(button,fn)=>{if(button?.disabled)return;if(button)button.disabled=true;try{await fn();}catch(e){console.error(e);toast(e.message||'Something went wrong. Please try again.',true);}finally{if(button)button.disabled=false;}};
+  const normalizeEmail=value=>String(value??'').trim().toLowerCase();
+  const pendingKey='padel_pending_email_verification';
+  function pendingEmail(){try{const p=JSON.parse(localStorage.getItem(pendingKey)||'null');if(p&&Date.now()-p.at<3600000)return p.email;}catch{}localStorage.removeItem(pendingKey);return null;}
+  function checkProfile(profile,user){if(!profile||profile.user_id!==user.id||normalizeEmail(profile.email)!==normalizeEmail(user.email))throw new Error('Profile identity mismatch. Sign out and verify the correct email.');return profile;}
   const storedKey=()=>`padel_group_id:${state.user?.id}`;
   function stopGroup(){clearInterval(state.refreshTimer);state.refreshTimer=null;state.group=null;state.member=null;state.matches=[];state.clubs=[];state.editing=null;}
-  function showAuth(linking=false){panel('auth-panel');$('auth-heading').innerHTML=linking?'Keep your existing<br><span>player identity.</span>':'Sign in with<br><span>your email.</span>';$('auth-description').textContent=linking?'Verify an email on this browser to preserve your existing groups and admin rights.':'Enter your email and we’ll send a secure sign-in link. No password required.';$('email-form').classList.remove('hidden');$('email-sent-panel').classList.add('hidden');status(linking?'Secure your account':'Email verification required');}
+  function showAuth(linking=false){panel('auth-panel');$('auth-heading').innerHTML=linking?'Keep your existing<br><span>player identity.</span>':'Sign in with<br><span>your email.</span>';$('auth-description').textContent=linking?'Link an email to the existing player on this browser to preserve groups and admin rights. To register a different person, sign out first.':'Enter your email and we’ll send a secure sign-in link. No password required.';$('email-form').classList.remove('hidden');$('email-sent-panel').classList.add('hidden');status(linking?'Secure your account':'Email verification required');}
   // Supabase returns the email link's verified session. Never trust a browser-only verified flag.
   async function authenticate(session){
     const epoch=++state.route;
     stopGroup();state.user=session?.user||null;state.profile=null;
+    $('profile-name').value='';$('verified-account').textContent='';$('verified-account').classList.add('hidden');
+    panel(null);
     if(!session){showAuth();return;}
     if(session.user.is_anonymous){showAuth(true);return;}
     status('Loading your profile…');
@@ -29,12 +35,17 @@
     const {data,error}=await state.client.auth.getUser();
     if(epoch!==state.route)return;
     if(error)throw error;
+    if(!data.user||data.user.id!==session.user.id||normalizeEmail(data.user.email)!==normalizeEmail(session.user.email))throw new Error('The signed-in account changed. Sign out and verify the correct email.');
     state.user=data.user;
     if(!state.user?.email_confirmed_at||state.user.is_anonymous){showAuth(!!state.user?.is_anonymous);return;}
+    const email=normalizeEmail(state.user.email), expected=pendingEmail();
+    if(!email||expected&&expected!==email)throw new Error('The verified email does not match the requested login. Sign out and open the correct email link.');
+    localStorage.removeItem(pendingKey);
+    $('verified-account').textContent=`Signed in as ${email}`;$('verified-account').classList.remove('hidden');
     const profile=await rpc('get_my_padel_profile');
     if(epoch!==state.route)return;
-    state.profile=profile;
-    if(!profile){panel('profile-panel');status('Verified · set up profile');return;}
+    state.profile=profile?checkProfile(profile,state.user):null;
+    if(!profile){$('profile-email').textContent=email;$('profile-name').value='';panel('profile-panel');status('Verified · set up profile');return;}
     await routeGroups();
   }
   async function routeGroups(forcePicker=false){
@@ -45,7 +56,7 @@
     localStorage.removeItem('padel_pending_invite');
     const invited=invite&&groups.find(g=>g.invite_code.toUpperCase()===invite.toUpperCase());
     if(!forcePicker&&invited){await enterGroup(invited);return;}
-    if(!forcePicker&&!invite){const remembered=localStorage.getItem(storedKey())||localStorage.getItem('padel_group_id');const chosen=groups.find(g=>g.group_id===remembered)||(groups.length===1?groups[0]:null);if(chosen){await enterGroup(chosen);return;}}
+    if(!forcePicker&&!invite){const remembered=localStorage.getItem(storedKey());const chosen=groups.find(g=>g.group_id===remembered)||(groups.length===1?groups[0]:null);if(chosen){await enterGroup(chosen);return;}}
     panel('setup-panel');if(invite){$('join-code').value=invite;document.querySelector('[data-tab="join"]').click();}
     const box=$('my-groups-panel');box.classList.toggle('hidden',!groups.length);box.innerHTML=`<div class="panel-kicker">YOUR GROUPS</div><div class="my-groups-list">${groups.map((g,i)=>`<button class="my-group-button" type="button" data-group="${i}"><strong>${esc(g.group_name)}</strong><span>${g.is_admin?'Admin':'Member'} · Open →</span></button>`).join('')}</div>`;
     box.querySelectorAll('[data-group]').forEach(b=>b.onclick=()=>run(b,()=>enterGroup(groups[Number(b.dataset.group)])));
@@ -92,11 +103,15 @@
     const email=$('auth-email').value.trim().toLowerCase(),{data,error}=await state.client.auth.getSession();if(error)throw error;
     // Retain invite context on the same browser; use exact authorized redirect URL.
     const invite=new URLSearchParams(location.search).get('invite');if(invite)localStorage.setItem('padel_pending_invite',invite);
-    const result=data.session?.user?.is_anonymous?await state.client.auth.updateUser({email},{emailRedirectTo:APP_URL}):await state.client.auth.signInWithOtp({email,options:{shouldCreateUser:true,emailRedirectTo:APP_URL}});if(result.error)throw result.error;
+    if(data.session&&!data.session.user.is_anonymous)throw new Error('Sign out before signing in with a different email.');
+    if(data.session?.user?.is_anonymous&&pendingEmail()&&pendingEmail()!==email)throw new Error('Finish the previous verification, or sign out to use a different account.');
+    if(data.session?.user?.is_anonymous&&!confirm('Link this email to the existing player account on this browser? To create a separate account, cancel and sign out first.'))return;
+    localStorage.setItem(pendingKey,JSON.stringify({email,at:Date.now()}));
+    const result=data.session?.user?.is_anonymous?await state.client.auth.updateUser({email},{emailRedirectTo:APP_URL}):await state.client.auth.signInWithOtp({email,options:{shouldCreateUser:true,emailRedirectTo:APP_URL}});if(result.error){localStorage.removeItem(pendingKey);throw result.error;}
     $('email-form').classList.add('hidden');$('email-sent-panel').classList.remove('hidden');$('email-sent-address').textContent=email;toast('Check your email for the sign-in link.');
   });};
   $('change-email-button').onclick=()=>{$('email-sent-panel').classList.add('hidden');$('email-form').classList.remove('hidden');};
-  $('profile-form').onsubmit=e=>{e.preventDefault();run(e.submitter,async()=>{state.profile=await rpc('save_my_padel_profile',{p_display_name:$('profile-name').value.trim()});await routeGroups();});};
+  $('profile-form').onsubmit=e=>{e.preventDefault();run(e.submitter,async()=>{const epoch=state.route,user=state.user;if(!user||user.is_anonymous)throw new Error('Verify your email first.');const profile=await rpc('register_my_padel_profile',{p_display_name:$('profile-name').value.trim(),p_expected_email:normalizeEmail(user.email),p_expected_user_id:user.id});if(epoch!==state.route)return;state.profile=checkProfile(profile,user);$('profile-name').value='';await routeGroups();});};
   document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active',x===t));$('join-form').classList.toggle('hidden',t.dataset.tab!=='join');$('create-form').classList.toggle('hidden',t.dataset.tab!=='create');});
   $('join-form').onsubmit=e=>{e.preventDefault();run(e.submitter,async()=>{const g=await rpc('join_padel_group',{p_invite_code:$('join-code').value.trim(),p_display_name:state.profile.display_name});await enterGroup(g);});};
   $('create-form').onsubmit=e=>{e.preventDefault();run(e.submitter,async()=>{const g=await rpc('create_padel_group',{p_group_name:$('new-group-name').value.trim(),p_display_name:state.profile.display_name});await enterGroup(g);});};
@@ -116,7 +131,7 @@
     $('my-groups-panel').innerHTML='';$('my-groups-panel').classList.add('hidden');
     panel('setup-panel');toast('Group deleted.');await routeGroups(true);
   });
-  $('sign-out').onclick=e=>run(e.currentTarget,async()=>{const {error}=await state.client.auth.signOut({scope:'local'});if(error)throw error;localStorage.removeItem('padel_pending_invite');await authenticate(null);});
+  $('sign-out').onclick=e=>run(e.currentTarget,async()=>{const {error}=await state.client.auth.signOut({scope:'local'});if(error)throw error;localStorage.removeItem('padel_pending_invite');localStorage.removeItem(pendingKey);$('auth-email').value='';await authenticate(null);});
   async function init(){
     if(!cfg.SUPABASE_URL||cfg.SUPABASE_URL.includes('YOUR-')||!cfg.SUPABASE_ANON_KEY||cfg.SUPABASE_ANON_KEY.includes('YOUR_')){showAuth();status('Setup required');$('auth-description').textContent='Keep your existing configured config.js or add your Supabase URL and public key.';return;}
     state.client=window.supabase.createClient(cfg.SUPABASE_URL,cfg.SUPABASE_ANON_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
@@ -124,9 +139,9 @@
     const {data,error}=await state.client.auth.getSession();if(error)throw error;
     if(data.session&&!data.session.user.is_anonymous)localStorage.removeItem('padel_pending_invite');
     // Event callback is deferred so no Supabase calls are made while its auth lock is held.
-    state.client.auth.onAuthStateChange((event,session)=>{if(event==='SIGNED_OUT'&&state.user)setTimeout(()=>authenticate(null).catch(fail),0);else if((event==='SIGNED_IN'||event==='USER_UPDATED')&&session&&(!state.user||state.user.id!==session.user.id||state.user.is_anonymous!==session.user.is_anonymous))setTimeout(()=>authenticate(session).catch(fail),0);});
+    state.client.auth.onAuthStateChange((event,session)=>{if(event==='SIGNED_OUT'&&state.user)setTimeout(()=>authenticate(null).catch(fail),0);else if((event==='SIGNED_IN'||event==='USER_UPDATED')&&session&&(!state.user||state.user.id!==session.user.id||state.user.is_anonymous!==session.user.is_anonymous||normalizeEmail(state.user.email)!==normalizeEmail(session.user.email)||state.user.email_confirmed_at!==session.user.email_confirmed_at))setTimeout(()=>authenticate(session).catch(fail),0);});
     await authenticate(data.session);
   }
-  function fail(e){console.error(e);status('Setup or login error');toast(e.message||'Unable to connect.',true);if(!state.user)showAuth();else {panel('auth-panel');$('email-form').classList.add('hidden');$('email-sent-panel').classList.add('hidden');$('auth-heading').textContent='Could not load your account';$('auth-description').textContent='Confirm the profile and match migration was applied, then reload. You can also sign out and try again.';}}
+  function fail(e){console.error(e);status('Setup or login error');toast(e.message||'Unable to connect.',true);if(!state.user)showAuth();else {panel('auth-panel');$('email-form').classList.add('hidden');$('email-sent-panel').classList.add('hidden');$('auth-heading').textContent='Could not load your account';$('auth-description').textContent=`${e.message||'Unable to load your account.'} Sign out and verify the correct email, or contact the administrator.`;}}
   init().catch(fail);
 })();

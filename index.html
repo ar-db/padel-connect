@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20261125-deletegroup1">
+  <link rel="stylesheet" href="styles.css?v=20261125-identity2">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
@@ -20,6 +20,7 @@
   </header>
 
   <main class="shell">
+    <p id="verified-account" class="verified-account hidden" aria-live="polite"></p>
     <section class="hero">
       <div class="hero-copy">
         <div class="eyebrow"><span>YOUR CREW. YOUR COURT.</span><span class="eyebrow-line"></span><span>MÁLAGA</span></div>
@@ -62,7 +63,7 @@
     </section>
 
     <section id="profile-panel" class="setup-grid hidden">
-      <article class="panel welcome-panel"><div class="panel-kicker">ONE-TIME SETUP</div><h2>What should your<br><span>friends call you?</span></h2><p>Your verified email and name are saved securely. You will not need to enter your name again on another device.</p><form id="profile-form" class="stack-form"><label>YOUR NAME<input id="profile-name" autocomplete="nickname" maxlength="40" required></label><button class="primary-button" type="submit">Save profile <span>→</span></button></form></article>
+      <article class="panel welcome-panel"><div class="panel-kicker">ONE-TIME SETUP</div><h2>What should your<br><span>friends call you?</span></h2><p>Register your name for <strong id="profile-email"></strong>. This name is saved once for this verified email and reused on every device.</p><form id="profile-form" class="stack-form"><label>YOUR NAME<input id="profile-name" autocomplete="off" maxlength="40" required></label><button class="primary-button" type="submit">Save profile <span>→</span></button></form></article>
     </section>
     <section id="setup-panel" class="setup-grid hidden">
       <article class="panel welcome-panel">
@@ -134,6 +135,6 @@
     <div id="toast" class="toast" role="status"></div>
   </main>
   <footer class="site-footer"><span>PADEL CONNECT © <span id="year"></span></span><span>Find a match. Play more.</span></footer>
-  <script src="config.js"></script><script src="app.js?v=20261125-deletegroup1"></script>
+  <script src="config.js"></script><script src="app.js?v=20261125-identity2"></script>
 </body>
 </html>

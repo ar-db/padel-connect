@@ -1,14 +1,16 @@
 // Lightweight mock smoke tests. No live Supabase calls.
 const assert=require('node:assert/strict'),vm=require('node:vm'),fs=require('node:fs');
 const source=fs.readFileSync(require('node:path').join(__dirname,'../app.js'),'utf8');
-async function boot({session,profile,groups=[],matches=[],clubs=[],confirmDelete=true,deleteError=null}){
+async function boot({session,profile,groups=[],matches=[],clubs=[],confirmDelete=true,deleteError=null,email="first@example.com",userId="user-1",pending=null,rawProfile=false,registrationName="Registered Player",registrationProfile=null}){
  const nodes=new Map(),calls=[],requests=[],storage=new Map(),confirmations=[];let activeGroups=[...groups],removed=false;
  const element=()=>({classList:{hidden:false,toggle(k,v){if(k==='hidden')this.hidden=v;},add(k){if(k==='hidden')this.hidden=true;},remove(k){if(k==='hidden')this.hidden=false;}},textContent:'',innerHTML:'',value:'',style:{},querySelectorAll:()=>[],reset(){},click(){}});
  const get=id=>{if(!nodes.has(id))nodes.set(id,element());return nodes.get(id);};
- const user={id:'user-1',email_confirmed_at:'2026-01-01',is_anonymous:false};
- const client={auth:{getSession:async()=>({data:{session:session?{user}:null}}),getUser:async()=>({data:{user}}),onAuthStateChange(){}},rpc:async(fn,args)=>{calls.push(fn);requests.push({fn,args});if(fn==='delete_padel_group'){if(deleteError)return {error:new Error(deleteError)};activeGroups=activeGroups.filter(g=>g.group_id!==args.p_group_id);return {data:null};}if(removed&&['get_padel_dashboard','list_padel_matches'].includes(fn))return {error:new Error('You are not a member of this group')};return {data:({get_my_padel_profile:profile,get_my_padel_groups:activeGroups,get_my_padel_group:groups[0],get_padel_dashboard:{members:[],clubs},list_padel_matches:matches})[fn]};}};
- const ctx={window:{PADEL_CONFIG:{SUPABASE_URL:'https://pkyiwwolgtdqvekgndyt.supabase.co',SUPABASE_ANON_KEY:'sb_publishable_dT6lsQRphpUtxGelUpF1Ow_0Mu19oAP'},supabase:{createClient:()=>client}},document:{getElementById:get,querySelectorAll:()=>[],querySelector:()=>element()},localStorage:{getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,v),removeItem:k=>storage.delete(k)},location:{search:'',href:'https://ar-db.github.io/padel-connect/'},history:{replaceState(){}},URL,URLSearchParams,Intl,Date,console:{...console,error(){}},confirm:msg=>{confirmations.push(msg);return confirmDelete;},setTimeout:()=>0,clearTimeout(){},setInterval:()=>0,clearInterval(){}};
- vm.runInNewContext(source,ctx);await new Promise(r=>setImmediate(r));return {get,calls,requests,confirmations,storage,removeExternally(){removed=true;activeGroups=[];}};
+ let user={id:userId,email,email_confirmed_at:'2026-01-01',is_anonymous:false};
+ let authCallback; if(pending)storage.set("padel_pending_email_verification",JSON.stringify({email:pending,at:Date.now()}));
+ let savedProfile=profile&&!rawProfile?{user_id:user.id,email:user.email,...profile}:profile;
+ const client={auth:{getSession:async()=>({data:{session:session?{user}:null}}),getUser:async()=>({data:{user}}),onAuthStateChange(fn){authCallback=fn;}},rpc:async(fn,args)=>{calls.push(fn);requests.push({fn,args});if(fn==='register_my_padel_profile'){if(args.p_expected_email!==user.email||args.p_expected_user_id!==user.id)return {error:new Error('Account changed')};savedProfile=savedProfile||registrationProfile||{user_id:user.id,email:user.email,display_name:registrationName};return {data:savedProfile};}if(fn==='delete_padel_group'){if(deleteError)return {error:new Error(deleteError)};activeGroups=activeGroups.filter(g=>g.group_id!==args.p_group_id);return {data:null};}if(removed&&['get_padel_dashboard','list_padel_matches'].includes(fn))return {error:new Error('You are not a member of this group')};return {data:({get_my_padel_profile:savedProfile,get_my_padel_groups:activeGroups,get_my_padel_group:groups[0],get_padel_dashboard:{members:[],clubs},list_padel_matches:matches})[fn]};}};
+ const ctx={window:{PADEL_CONFIG:{SUPABASE_URL:'https://pkyiwwolgtdqvekgndyt.supabase.co',SUPABASE_ANON_KEY:'sb_publishable_dT6lsQRphpUtxGelUpF1Ow_0Mu19oAP'},supabase:{createClient:()=>client}},document:{getElementById:get,querySelectorAll:()=>[],querySelector:()=>element()},localStorage:{getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,v),removeItem:k=>storage.delete(k)},location:{search:'',href:'https://ar-db.github.io/padel-connect/'},history:{replaceState(){}},URL,URLSearchParams,Intl,Date,console:{...console,error(){}},confirm:msg=>{confirmations.push(msg);return confirmDelete;},setTimeout:(fn,delay)=>delay===0?setTimeout(fn,0):0,clearTimeout(){},setInterval:()=>0,clearInterval(){}};
+ vm.runInNewContext(source,ctx);await new Promise(r=>setImmediate(r));return {get,calls,requests,confirmations,storage,async switchAccount(next,profile){user=next;savedProfile=profile;authCallback("SIGNED_IN",{user});await new Promise(r=>setTimeout(r,20));},removeExternally(){removed=true;activeGroups=[];}};
 }
 (async()=>{
  let r=await boot({session:false});assert.equal(r.get('auth-panel').classList.hidden,false);assert.deepEqual(r.calls,[]);
@@ -42,6 +44,27 @@ async function boot({session,profile,groups=[],matches=[],clubs=[],confirmDelete
  assert.equal(r.get('group-admin-controls').classList.hidden,true);
  await r.get('delete-group').onclick({currentTarget:r.get('delete-group')});assert.ok(!r.calls.includes('delete_padel_group'));assert.equal(r.confirmations.length,0);
  r.removeExternally();await r.get('refresh-matches').onclick({currentTarget:r.get('refresh-matches')});assert.equal(r.get('setup-panel').classList.hidden,false);assert.equal(r.get('app-panel').classList.hidden,true);assert.equal(r.get('toast').textContent,'This group is no longer available.');
+ // A different verified email must not inherit a previously entered name.
+ r=await boot({session:true,email:'second@example.com',userId:'user-2',profile:null});
+ assert.equal(r.get('profile-email').textContent,'second@example.com');assert.equal(r.get('profile-name').value,'');assert.equal(r.get('profile-panel').classList.hidden,false);
+ r.get('profile-name').value='Second Player';r.get('profile-form').onsubmit({preventDefault(){},submitter:{}});await new Promise(r=>setImmediate(r));
+ assert.equal(r.requests.find(x=>x.fn==='register_my_padel_profile').args.p_expected_email,'second@example.com');
+ assert.equal(r.requests.find(x=>x.fn==='register_my_padel_profile').args.p_expected_user_id,'user-2');
+ assert.equal(r.get('setup-panel').classList.hidden,false);
+ r=await boot({session:true,email:'second@example.com',userId:'user-2',profile:{user_id:'user-1',email:'first@example.com',display_name:'Wrong name'},rawProfile:true});
+ assert.equal(r.get('setup-panel').classList.hidden,true);assert.equal(r.get('profile-panel').classList.hidden,true);assert.match(r.get('auth-description').textContent,/identity mismatch/i);
+ r=await boot({session:true,email:'first@example.com',pending:'second@example.com',profile:{display_name:'First'}});
+ assert.deepEqual(r.calls,[]);assert.match(r.get('auth-description').textContent,/does not match/i);
+ r=await boot({session:true,profile:{display_name:'First'}});r.get('profile-name').value='First';
+ await r.switchAccount({id:'user-2',email:'second@example.com',email_confirmed_at:'2026-01-01',is_anonymous:false},null);
+ assert.equal(r.get('profile-panel').classList.hidden,false);assert.equal(r.get('profile-name').value,'');assert.equal(r.get('profile-email').textContent,'second@example.com');
+ await r.switchAccount({id:'user-2',email:'third@example.com',email_confirmed_at:'2026-01-01',is_anonymous:false},{user_id:'user-2',email:'second@example.com',display_name:'Second'});
+ assert.equal(r.get('profile-panel').classList.hidden,true);assert.match(r.get('auth-description').textContent,/identity mismatch/i);
+ r=await boot({session:true,profile:{display_name:'Original Name'}});
+ r.get('profile-name').value='Changed Name';r.get('profile-form').onsubmit({preventDefault(){},submitter:{}});await new Promise(r=>setImmediate(r));
+ assert.equal(r.get('profile-greeting').textContent,'Welcome, Original Name.');
+ console.log('PASS: mocked repeat registration preserves original name');
+ console.log('PASS: independent email accounts, explicit registration, stale session rejection, mismatched profile rejection, account switching');
  console.log('PASS: admin-only delete UI, cancel, successful deletion, failed deletion and deleted-group refresh');
  console.log('PASS: Any club option, rendering and save payload');
  console.log('PASS: match creator and other-member card rendering');

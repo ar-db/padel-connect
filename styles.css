@@ -48,3 +48,5 @@
 .delete-group-button{color:#9a453c;border-color:#ead5d2;width:100%}
 .delete-group-button:hover{background:#fff4f2;border-color:#d9aaa4}
 .delete-group-button:disabled{opacity:.5;cursor:wait}
+
+.verified-account{margin:12px 0 0;text-align:right;color:var(--muted);font-size:12px;overflow-wrap:anywhere}.verified-account.hidden{display:none}
