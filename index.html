@@ -4,19 +4,19 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#102b25">
-  <meta name="description" content="Private weekly padel planning for your friends in Málaga.">
+  <meta name="description" content="Private padel match planning for your friends in Málaga.">
   <title>Padel Connect — Play together</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css?v=20261125">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
   <div class="ambient ambient-one"></div><div class="ambient ambient-two"></div>
   <header class="topbar">
     <a class="brand" href="#"><span class="brand-mark">P</span><span>PADEL<span class="brand-light">CONNECT</span></span></a>
-    <div class="topbar-right"><span class="live-dot"></span><span id="connection-label">Connecting</span><button class="text-button hidden" id="leave-group">Leave group</button></div>
+    <div class="topbar-right"><span class="live-dot"></span><span id="connection-label">Connecting</span><button class="text-button hidden" id="leave-group">Switch group</button><button class="text-button hidden" id="sign-out">Sign out</button></div>
   </header>
 
   <main class="shell">
@@ -24,8 +24,8 @@
       <div class="hero-copy">
         <div class="eyebrow"><span>YOUR CREW. YOUR COURT.</span><span class="eyebrow-line"></span><span>MÁLAGA</span></div>
         <h1>Good games<br>start <em>together.</em></h1>
-        <p>Find the time that works for your crew. Pick your slots, see the overlap, and get on court.</p>
-        <div class="hero-tags"><span>✳ Weekly planning</span><span>✳ Live availability</span><span>✳ One-tap WhatsApp</span></div>
+        <p>Create a match, choose your team and get on court with your crew.</p>
+        <div class="hero-tags"><span>✳ Match planner</span><span>✳ Four player slots</span><span>✳ One-tap WhatsApp</span></div>
       </div>
       <div class="hero-art" aria-label="Padel court illustration">
         <div class="court court-back"></div><div class="court court-front"></div>
@@ -61,20 +61,21 @@
       </aside>
     </section>
 
+    <section id="profile-panel" class="setup-grid hidden">
+      <article class="panel welcome-panel"><div class="panel-kicker">ONE-TIME SETUP</div><h2>What should your<br><span>friends call you?</span></h2><p>Your verified email and name are saved securely. You will not need to enter your name again on another device.</p><form id="profile-form" class="stack-form"><label>YOUR NAME<input id="profile-name" autocomplete="nickname" maxlength="40" required></label><button class="primary-button" type="submit">Save profile <span>→</span></button></form></article>
+    </section>
     <section id="setup-panel" class="setup-grid hidden">
       <article class="panel welcome-panel">
         <div class="panel-kicker">GET YOUR CREW TOGETHER</div>
         <h2>Start with your<br><span>private group.</span></h2>
         <p>Create a group for your friends or join one with an invite code. Your verified email keeps your player identity consistent.</p>
-        <div class="setup-tabs"><button class="tab active" data-tab="join">Join a group</button><button class="tab" data-tab="create">Create a group</button></div>
+        <p id="profile-greeting" class="muted"></p><div class="setup-tabs"><button class="tab active" data-tab="join">Join a group</button><button class="tab" data-tab="create">Create a group</button></div>
         <form id="join-form" class="stack-form">
           <label>INVITE CODE<input id="join-code" placeholder="e.g. MALAGA-7K4P" autocomplete="off" required maxlength="24"></label>
-          <label>YOUR NAME<input id="join-name" placeholder="How should friends see you?" required maxlength="40"></label>
           <button class="primary-button" type="submit">Join the crew <span>→</span></button>
         </form>
         <form id="create-form" class="stack-form hidden">
           <label>GROUP NAME<input id="new-group-name" placeholder="e.g. Friday Padel Crew" required maxlength="50"></label>
-          <label>YOUR NAME<input id="create-name" placeholder="Your name" required maxlength="40"></label>
           <button class="primary-button" type="submit">Create private group <span>→</span></button>
         </form>
         <div id="my-groups-panel" class="my-groups-panel hidden"></div>
@@ -83,8 +84,8 @@
       <aside class="panel how-panel">
         <div class="how-icon">↗</div><div class="panel-kicker">HOW IT WORKS</div>
         <div class="how-step"><b>01</b><div><strong>Join your crew</strong><span>Use a private invite code.</span></div></div>
-        <div class="how-step"><b>02</b><div><strong>Drop your availability</strong><span>Choose days, times and clubs.</span></div></div>
-        <div class="how-step"><b>03</b><div><strong>Find the overlap</strong><span>See the best time for the group.</span></div></div>
+        <div class="how-step"><b>02</b><div><strong>Create a match</strong><span>Choose a date, time and club.</span></div></div>
+        <div class="how-step"><b>03</b><div><strong>Choose your team</strong><span>Claim one of four player spots.</span></div></div>
         <div class="how-step"><b>04</b><div><strong>Get on court</strong><span>Share the plan in WhatsApp.</span></div></div>
       </aside>
     </section>
@@ -97,17 +98,19 @@
 
       <div class="dashboard-grid">
         <article class="panel availability-panel">
-          <div class="section-heading"><div><div class="panel-kicker">YOUR WEEK</div><h3>When can you play?</h3></div><span class="week-label" id="week-label"></span></div>
-          <p class="muted">Add each day, time, duration and preferred location as a separate preference. Your choices are saved to this group.</p>
-          <p class="muted">Choose a day, start time (30-minute increments), 60- or 90-minute duration, and location in one line. Add multiple preferences, including different locations.</p>
-          <div id="availability-editor"></div>
-          <div class="editor-footer"><span id="save-status" class="muted">Changes save when you press save.</span><button class="primary-button compact" id="save-availability">Save my availability <span>→</span></button></div>
+          <div class="section-heading"><div><div class="panel-kicker">MATCH PLANNER</div><h3>Upcoming matches</h3></div><button id="refresh-matches" class="secondary-button" type="button">Refresh</button></div>
+          <p class="muted">Málaga time · Choose an empty position to join a team.</p>
+          <form id="match-form" class="match-form stack-form">
+            <h4 id="match-form-title">Create a match</h4>
+            <label>DATE<input id="match-date" type="date" required></label>
+            <label>START TIME<select id="match-time" required></select></label>
+            <label>DURATION<select id="match-duration"><option value="60">60 min</option><option value="90">90 min</option></select></label>
+            <label>LOCATION<input id="match-location" list="match-clubs" placeholder="Club or court" minlength="2" maxlength="80" required><datalist id="match-clubs"></datalist></label>
+            <button type="submit" class="primary-button" id="save-match">Create match <span>+</span></button><button class="secondary-button hidden" id="cancel-edit" type="button">Cancel edit</button>
+          </form>
+          <div id="match-list" class="match-list" aria-live="polite"></div>
         </article>
-
         <aside class="side-stack">
-          <article class="panel best-panel">
-            <div class="panel-kicker" id="best-kicker">BUILDING YOUR GROUP</div><div class="best-icon">✳</div><h3 id="best-title">Finding your best slot…</h3><p id="best-description" class="muted">Once friends add their availability, upcoming matches with 4 or more players will appear here.</p><div id="group-picks-list" class="group-picks-list"></div><button class="whatsapp-button hidden" id="best-whatsapp">Share best slot on WhatsApp ↗</button>
-          </article>
           <article class="panel crew-panel">
             <div class="section-heading"><div><div class="panel-kicker">THE LINE-UP</div><h3>Your crew</h3></div><span class="count-pill" id="crew-count">0</span></div>
             <div id="crew-list" class="crew-list"><p class="muted">Your group members will appear here.</p></div>
@@ -116,7 +119,7 @@
       </div>
       <article class="panel locations-panel">
         <div class="section-heading"><div><div class="panel-kicker">WHERE TO PLAY</div><h3>Málaga padel spots</h3></div><span class="muted small">Group locations</span></div>
-        <p class="muted">Add the clubs your group likes. Everyone can then select their preferred locations in their availability.</p>
+        <p class="muted">Add the clubs your group likes. Everyone can then choose these locations when creating a match.</p>
         <form id="club-form" class="club-form"><input id="club-name" placeholder="Club name" maxlength="80" required><input id="club-area" placeholder="Area (e.g. Teatinos)" maxlength="80"><button class="secondary-button" type="submit">+ Add club</button></form>
         <div id="club-list" class="club-list"></div>
       </article>
@@ -124,7 +127,7 @@
     </section>
     <div id="toast" class="toast" role="status"></div>
   </main>
-  <footer class="site-footer"><span>PADEL CONNECT © <span id="year"></span></span><span>Find the overlap. Play more.</span></footer>
-  <script src="config.js"></script><script src="app.js"></script>
+  <footer class="site-footer"><span>PADEL CONNECT © <span id="year"></span></span><span>Find a match. Play more.</span></footer>
+  <script src="config.js"></script><script src="app.js?v=20261125"></script>
 </body>
 </html>
