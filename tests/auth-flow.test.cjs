@@ -2,25 +2,44 @@
 const assert=require('node:assert/strict'),vm=require('node:vm'),fs=require('node:fs');
 const source=fs.readFileSync(require('node:path').join(__dirname,'../app.js'),'utf8');
 async function boot({session,profile,groups=[],matches=[],clubs=[],confirmDelete=true,deleteError=null,email="first@example.com",userId="user-1",pending=null,rawProfile=false,registrationName="Registered Player",registrationProfile=null,now="2026-11-25T20:00:00Z"}){
- const nodes=new Map(),calls=[],requests=[],storage=new Map(),confirmations=[];let activeGroups=[...groups],removed=false,offline=false,clock=Date.parse(now),tick,visibility,focus;
+ const nodes=new Map(),calls=[],requests=[],storage=new Map(),confirmations=[];let activeGroups=[...groups],removed=false,offline=false,clock=Date.parse(now),visibility,focus;const intervals=new Map();let revision=1;
  class TestDate extends Date {constructor(...args){super(...(args.length?args:[clock]));}static now(){return clock;}}
  const element=()=>({classList:{hidden:false,toggle(k,v){if(k==='hidden')this.hidden=v;},add(k){if(k==='hidden')this.hidden=true;},remove(k){if(k==='hidden')this.hidden=false;}},textContent:'',innerHTML:'',value:'',style:{},querySelectorAll:()=>[],reset(){},click(){}});
  const get=id=>{if(!nodes.has(id))nodes.set(id,element());return nodes.get(id);};
  let user={id:userId,email,email_confirmed_at:'2026-01-01',is_anonymous:false};
  let authCallback; if(pending)storage.set("padel_pending_email_verification",JSON.stringify({email:pending,at:clock}));
  let savedProfile=profile&&!rawProfile?{user_id:user.id,email:user.email,...profile}:profile;
- const client={auth:{getSession:async()=>({data:{session:session?{user}:null}}),getUser:async()=>({data:{user}}),onAuthStateChange(fn){authCallback=fn;}},rpc:async(fn,args)=>{calls.push(fn);requests.push({fn,args});if(fn==='register_my_padel_profile'){if(args.p_expected_email!==user.email||args.p_expected_user_id!==user.id)return {error:new Error('Account changed')};savedProfile=savedProfile||registrationProfile||{user_id:user.id,email:user.email,display_name:registrationName};return {data:savedProfile};}if(fn==='delete_padel_group'){if(deleteError)return {error:new Error(deleteError)};activeGroups=activeGroups.filter(g=>g.group_id!==args.p_group_id);return {data:null};}if(offline&&['get_padel_dashboard','list_padel_matches'].includes(fn))return {error:new Error('Offline')};if(removed&&['get_padel_dashboard','list_padel_matches'].includes(fn))return {error:new Error('You are not a member of this group')};return {data:({get_my_padel_profile:savedProfile,get_my_padel_groups:activeGroups,get_my_padel_group:groups[0],get_padel_dashboard:{members:[],clubs},list_padel_matches:matches})[fn]};}};
- const ctx={window:{addEventListener:(event,fn)=>{if(event==='focus')focus=fn;},PADEL_CONFIG:{SUPABASE_URL:'https://pkyiwwolgtdqvekgndyt.supabase.co',SUPABASE_ANON_KEY:'sb_publishable_dT6lsQRphpUtxGelUpF1Ow_0Mu19oAP'},supabase:{createClient:()=>client}},document:{addEventListener:(event,fn)=>{if(event==='visibilitychange')visibility=fn;},getElementById:get,querySelectorAll:()=>[],querySelector:()=>element()},localStorage:{getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,v),removeItem:k=>storage.delete(k)},location:{search:'',href:'https://ar-db.github.io/padel-connect/'},history:{replaceState(){}},URL,URLSearchParams,Intl,Date:TestDate,console:{...console,error(){},warn(){}},confirm:msg=>{confirmations.push(msg);return confirmDelete;},setTimeout:(fn,delay)=>delay===0?setTimeout(fn,0):0,clearTimeout(){},setInterval:fn=>{tick=fn;return 1;},clearInterval(){}};
- vm.runInNewContext(source,ctx);await new Promise(r=>setImmediate(r));return {get,calls,requests,confirmations,storage,setClock(value){clock=Date.parse(value);},setOffline(value){offline=value;},async tick(){tick();await new Promise(r=>setImmediate(r));},async resume(){visibility();await new Promise(r=>setImmediate(r));},async focus(){focus();await new Promise(r=>setImmediate(r));},async switchAccount(next,profile){user=next;savedProfile=profile;authCallback("SIGNED_IN",{user});await new Promise(r=>setTimeout(r,20));},removeExternally(){removed=true;activeGroups=[];}};
+ const client={auth:{getSession:async()=>({data:{session:session?{user}:null}}),getUser:async()=>({data:{user}}),onAuthStateChange(fn){authCallback=fn;}},rpc:async(fn,args)=>{calls.push(fn);requests.push({fn,args});if(fn==='register_my_padel_profile'){if(args.p_expected_email!==user.email||args.p_expected_user_id!==user.id)return {error:new Error('Account changed')};savedProfile=savedProfile||registrationProfile||{user_id:user.id,email:user.email,display_name:registrationName};return {data:savedProfile};}if(fn==='delete_padel_group'){if(deleteError)return {error:new Error(deleteError)};activeGroups=activeGroups.filter(g=>g.group_id!==args.p_group_id);return {data:null};}if(offline&&fn==='get_padel_board')return {error:new Error('Offline')};if(removed&&fn==='get_padel_board')return {error:new Error('You are not a member of this group')};return {data:({get_my_padel_profile:savedProfile,get_my_padel_groups:activeGroups,get_my_padel_group:groups[0],get_padel_board:{matches,revision,dashboard:args?.p_known_revision===revision?null:{members:[],clubs}}})[fn]};}};
+ const ctx={window:{addEventListener:(event,fn)=>{if(event==='focus')focus=fn;},PADEL_CONFIG:{SUPABASE_URL:'https://pkyiwwolgtdqvekgndyt.supabase.co',SUPABASE_ANON_KEY:'sb_publishable_dT6lsQRphpUtxGelUpF1Ow_0Mu19oAP'},supabase:{createClient:()=>client}},document:{addEventListener:(event,fn)=>{if(event==='visibilitychange')visibility=fn;},getElementById:get,querySelectorAll:()=>[],querySelector:()=>element()},localStorage:{getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,v),removeItem:k=>storage.delete(k)},location:{search:'',href:'https://ar-db.github.io/padel-connect/'},history:{replaceState(){}},URL,URLSearchParams,Intl,Date:TestDate,console:{...console,error(){},warn(){}},confirm:msg=>{confirmations.push(msg);return confirmDelete;},setTimeout:(fn,delay)=>delay===0?setTimeout(fn,0):0,clearTimeout(){},setInterval:(fn,delay)=>{intervals.set(delay,fn);return delay;},clearInterval:id=>intervals.delete(id)};
+ vm.runInNewContext(source,ctx);await new Promise(r=>setImmediate(r));return {get,calls,requests,confirmations,storage,setClock(value){clock=Date.parse(value);},setOffline(value){offline=value;},addClub(club){clubs.push(club);revision++;},setHidden(value){ctx.document.hidden=value;},async tick(delay=60_000){intervals.get(delay)();await new Promise(r=>setImmediate(r));},async resume(){visibility();await new Promise(r=>setImmediate(r));},async focus(){focus();await new Promise(r=>setImmediate(r));},async switchAccount(next,profile){user=next;savedProfile=profile;authCallback("SIGNED_IN",{user});await new Promise(r=>setTimeout(r,20));},removeExternally(){removed=true;activeGroups=[];}};
 }
 (async()=>{
  let r=await boot({session:false});assert.equal(r.get('auth-panel').classList.hidden,false);assert.deepEqual(r.calls,[]);
  r=await boot({session:true,profile:null});assert.equal(r.get('profile-panel').classList.hidden,false);assert.deepEqual(r.calls,['get_my_padel_profile']);
- r=await boot({session:true,profile:{display_name:'Player'},groups:[{group_id:'g',group_name:'Crew',invite_code:'CODE',member_id:'m',display_name:'Player',is_admin:true}]});assert.equal(r.get('app-panel').classList.hidden,false);assert.equal(r.get('profile-panel').classList.hidden,true);assert.equal(r.get('group-title').textContent,'Crew');assert.ok(r.calls.includes('list_padel_matches'));
+ r=await boot({session:true,profile:{display_name:'Player'},groups:[{group_id:'g',group_name:'Crew',invite_code:'CODE',member_id:'m',display_name:'Player',is_admin:true}]});assert.equal(r.get('app-panel').classList.hidden,false);assert.equal(r.get('profile-panel').classList.hidden,true);assert.equal(r.get('group-title').textContent,'Crew');assert.ok(r.calls.includes('get_padel_board'));
  r=await boot({session:true,profile:{display_name:'Player'}});assert.equal(r.get('setup-panel').classList.hidden,false);assert.equal(r.get('profile-panel').classList.hidden,true);
  const match={id:'match-1',match_date:'2026-12-01',start_time:'18:00:00',duration:90,location:'Vals Club',registration_closed:false,can_manage:true,players:[{slot:1,member_id:'m',display_name:'Creator'}]};
  const group={group_id:'g',group_name:'Crew',invite_code:'CODE',member_id:'m',display_name:'Creator',is_admin:true};
  r=await boot({session:true,profile:{display_name:'Creator'},groups:[group],matches:[match]});
+ assert.equal(r.requests.at(-1).args.p_known_revision,null);
+ r.calls.length=0;
+ await r.tick(15_000);
+ assert.deepEqual(r.calls,[]);
+ await r.tick();
+ await r.focus();
+ assert.deepEqual(r.calls,['get_padel_board','get_padel_board']);
+ r.setHidden(true);
+ await r.tick();
+ assert.equal(r.calls.length,2);
+ r.setHidden(false);
+ await r.get('refresh-matches').onclick({currentTarget:r.get('refresh-matches')});
+ assert.equal(r.requests.at(-1).args.p_known_revision,null);
+ r.addClub({name:'Remote court'});
+ await r.tick();
+ assert.equal(r.requests.at(-1).args.p_known_revision,1);
+ assert.match(r.get('match-clubs').innerHTML,/Remote court/);
+ await r.tick();
+ assert.equal(r.requests.at(-1).args.p_known_revision,2);
  let html=r.get('match-list').innerHTML;assert.match(html,/1\/4 · 3 spots left/);assert.match(html,/TEAM A[\s\S]*?<strong>Creator<\/strong>/);assert.equal((html.match(/class="match-player vacant"/g)||[]).length,3);assert.equal((html.match(/<strong>Open spot<\/strong>/g)||[]).length,3);
  r=await boot({session:true,profile:{display_name:'Friend'},groups:[{...group,member_id:'other',display_name:'Friend',is_admin:false}],matches:[{...match,can_manage:false}]});
  html=r.get('match-list').innerHTML;assert.equal((html.match(/<strong>Join<\/strong>/g)||[]).length,3);assert.equal((html.match(/class="match-player vacant"[^>]*disabled/g)||[]).length,0);
@@ -70,7 +89,7 @@ async function boot({session,profile,groups=[],matches=[],clubs=[],confirmDelete
  const yesterday={...match,id:'old',location:'Old club',match_date:'2026-11-30'};
  r=await boot({session:true,profile:{display_name:'Creator'},groups:[group],matches:[yesterday,...expiryMatches,next],now:'2026-12-01T16:59:59Z'});
  assert.doesNotMatch(r.get('match-list').innerHTML,/Old club/);assert.equal((r.get('match-list').innerHTML.match(/class="match-card"/g)||[]).length,6);
- r.setOffline(true);r.setClock('2026-12-01T17:00:00Z');await r.tick();assert.doesNotMatch(r.get('match-list').innerHTML,/Expiry [0-4]/);assert.match(r.get('match-list').innerHTML,/Future club/);
+ r.setOffline(true);r.setClock('2026-12-01T17:00:00Z');await r.tick(15_000);assert.doesNotMatch(r.get('match-list').innerHTML,/Expiry [0-4]/);assert.match(r.get('match-list').innerHTML,/Future club/);
  r.setOffline(false);await r.tick();assert.doesNotMatch(r.get('match-list').innerHTML,/Expiry [0-4]/); // stale server results cannot resurrect expired cards
  r.setClock('2026-12-01T17:30:00Z');await r.resume();assert.match(r.get('match-list').innerHTML,/No upcoming matches/);
  // Summer daylight saving: Madrid 18:00 equals 16:00 UTC.
